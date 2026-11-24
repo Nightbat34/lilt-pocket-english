@@ -22,9 +22,9 @@ using Drawing = System.Drawing;
 [assembly: AssemblyTitle("Lilt Pocket English")]
 [assembly: AssemblyDescription("A quiet, English-first vocabulary companion for Windows.")]
 [assembly: AssemblyProduct("Lilt Pocket English")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
-[assembly: AssemblyInformationalVersion("1.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyInformationalVersion("1.1.0")]
 
 namespace PocketEnglish
 {
@@ -34,6 +34,7 @@ namespace PocketEnglish
   public string Category { get; set; }
   public string Term { get; set; }
   public string Ipa { get; set; }
+  public string BritishIpa { get; set; }
   public string Stress { get; set; }
   public string Definition { get; set; }
   public string Example { get; set; }
@@ -67,6 +68,8 @@ namespace PocketEnglish
   public bool WordRevealed { get; set; }
   public bool IpaMode { get; set; }
   public bool Quiet { get; set; }
+  public string PronunciationMode { get; set; }
+  public string UiFontName { get; set; }
   public bool KeepOnTop { get; set; }
   public int NewPosition { get; set; }
   public double Left { get; set; }
@@ -76,7 +79,7 @@ namespace PocketEnglish
   public List<Review> History { get; set; }
   public AppState()
   {
-   Version=1; Quiet=true; Left=-1; Top=-1;
+   Version=1; Quiet=true; PronunciationMode="US"; UiFontName=""; Left=-1; Top=-1;
    Entries=new Dictionary<string, Entry>(); CustomCards=new List<Card>(); History=new List<Review>();
   }
  }
@@ -94,8 +97,8 @@ namespace PocketEnglish
     while((line=reader.ReadLine())!=null)
     {
      if(String.IsNullOrWhiteSpace(line)) continue;
-     var p=line.Split('\t'); if(p.Length!=10) throw new InvalidDataException("Invalid vocabulary row: "+line);
-     cards.Add(new Card{Id=p[0],Category=p[1],Term=p[2],Ipa=p[3],Stress=p[4],Definition=p[5],Example=p[6],MeaningZh=p[7],ExampleZh=p[8],Collocation=p[9]});
+     var p=line.Split('\t'); if(p.Length!=11) throw new InvalidDataException("Invalid vocabulary row: "+line);
+     cards.Add(new Card{Id=p[0],Category=p[1],Term=p[2],Ipa=p[3],BritishIpa=p[10],Stress=p[4],Definition=p[5],Example=p[6],MeaningZh=p[7],ExampleZh=p[8],Collocation=p[9]});
     }
    }
    return cards;
@@ -147,12 +150,14 @@ namespace PocketEnglish
    if(root==null || !new[]{"Version","Entries","History","CustomCards"}.All(k=>root.ContainsKey(k))) throw new InvalidDataException("Incomplete backup.");
    var state=json.Deserialize<AppState>(text);
    if(state==null || state.Version!=1 || state.Entries==null || state.History==null || state.CustomCards==null) throw new InvalidDataException("Unsupported or incomplete backup.");
+   state.PronunciationMode=Phonetics.ValidMode(state.PronunciationMode);state.UiFontName=state.UiFontName??"";
+   if(state.UiFontName.Length>180 || state.UiFontName.Any(Char.IsControl))throw new InvalidDataException("Invalid UI font setting.");
    if(state.NewPosition<0 || state.NewPosition>=20 || Double.IsNaN(state.Left) || Double.IsInfinity(state.Left) || Double.IsNaN(state.Top) || Double.IsInfinity(state.Top)) throw new InvalidDataException("Invalid settings.");
    var ids=new HashSet<string>(Engine.BuiltIns().Select(c=>c.Id));
    foreach(var card in state.CustomCards)
    {
     if(card==null || String.IsNullOrWhiteSpace(card.Id) || !card.Id.StartsWith("custom-") || !ids.Add(card.Id) || String.IsNullOrWhiteSpace(card.Term) || card.Term.Length>80 || String.IsNullOrWhiteSpace(card.Definition) || String.IsNullOrWhiteSpace(card.Example) || !Engine.Mix.Contains(card.Category)) throw new InvalidDataException("Invalid custom card.");
-    if(new[]{card.Definition,card.Example,card.Ipa,card.Stress,card.MeaningZh,card.ExampleZh,card.Collocation}.Any(t=>t!=null && t.Length>2000)) throw new InvalidDataException("Card text is too long.");
+    if(new[]{card.Definition,card.Example,card.Ipa,card.BritishIpa,card.Stress,card.MeaningZh,card.ExampleZh,card.Collocation}.Any(t=>t!=null && t.Length>2000)) throw new InvalidDataException("Card text is too long.");
    }
    foreach(var pair in state.Entries)
    {
@@ -230,8 +235,10 @@ namespace PocketEnglish
    activation=signal; store=new StateStore(directory); state=store.Load(); notice=store.Warning;
    cards=Engine.BuiltIns().Concat(state.CustomCards).ToList();
    using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("MainWindow.xaml")) window=(Window)XamlReader.Load(stream);
+   Phonetics.Apply(N<SelectableText>("IpaText"));
    window.Topmost=state.KeepOnTop;
    if(state.Left>=SystemParameters.VirtualScreenLeft && state.Top>=SystemParameters.VirtualScreenTop && state.Left+400<=SystemParameters.VirtualScreenLeft+SystemParameters.VirtualScreenWidth && state.Top+500<=SystemParameters.VirtualScreenTop+SystemParameters.VirtualScreenHeight) { window.WindowStartupLocation=WindowStartupLocation.Manual; window.Left=state.Left; window.Top=state.Top; }
+   var availableFonts=new List<string>{"Default"};availableFonts.AddRange(Fonts.SystemFontFamilies.Select(f=>f.Source).Distinct().OrderBy(n=>n));if(!String.IsNullOrWhiteSpace(state.UiFontName)&&!availableFonts.Contains(state.UiFontName))availableFonts.Add(state.UiFontName);N<ComboBox>("UiFontCombo").ItemsSource=availableFonts;
    SetupTray(); SetupVoice(); Wire();
    if(Current()==null) SelectNext();
    RenderLearn(); ShowPage("Learn"); Save();
@@ -291,7 +298,7 @@ namespace PocketEnglish
    {
     lookupOrigin=page;lookupPath.Clear();lookupGeneration++;
     var senses=new List<WordSense>();
-    foreach(string source in new[]{"Wordset-license.txt","CMUdict-license.txt"})using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream(source))using(var reader=new StreamReader(stream,Encoding.UTF8))senses.Add(new WordSense{PartOfSpeech="License",Definition=reader.ReadToEnd()});
+    foreach(string source in new[]{"Wordset-license.txt","CMUdict-license.txt","DoulosSIL-license.txt","IPA-dict-license.txt"})using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream(source))using(var reader=new StreamReader(stream,Encoding.UTF8))senses.Add(new WordSense{PartOfSpeech="License",Definition=reader.ReadToEnd()});
     var visit=new LookupVisit{Word="Dictionary credits",Entry=new WordEntry{Word="Dictionary credits",Source="Wordset / WordNet: github.com/wordset/wordset-dictionary\nCMUdict: github.com/cmusphinx/cmudict",Senses=senses}};lookupPath.Add(visit);ShowPage("Lookup");RenderWord(visit,false);
    };
    N<Border>("TitleBar").MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e) { if(!(e.OriginalSource is Button)) { try { window.DragMove(); } catch(InvalidOperationException){} } };
@@ -323,6 +330,14 @@ namespace PocketEnglish
    N<Button>("AddButton").Click+=delegate { AddCard(); };
    N<CheckBox>("QuietCheck").Click+=delegate { if(settingControls)return; state.Quiet=N<CheckBox>("QuietCheck").IsChecked==true; if(state.Quiet && voice!=null) voice.SpeakAsyncCancelAll(); notice=null; RenderLearn(); Save(); };
    N<CheckBox>("TopmostCheck").Click+=delegate { if(settingControls)return; state.KeepOnTop=N<CheckBox>("TopmostCheck").IsChecked==true; window.Topmost=state.KeepOnTop; Save(); };
+   N<ComboBox>("PronunciationCombo").SelectionChanged+=delegate
+   {
+    if(settingControls)return;int selected=N<ComboBox>("PronunciationCombo").SelectedIndex;if(selected<0)return;state.PronunciationMode=selected==0?"UK":selected==2?"BOTH":"US";RenderLearn();Save();
+   };
+   N<ComboBox>("UiFontCombo").SelectionChanged+=delegate
+   {
+    if(settingControls)return;string selected=N<ComboBox>("UiFontCombo").SelectedItem as string;if(selected==null)return;state.UiFontName=selected=="Default"?"":selected;UiTypography.Apply(window,state.UiFontName);Save();
+   };
    N<Button>("ExportButton").Click+=delegate { Export(); };
    N<Button>("ImportButton").Click+=delegate { Import(); };
    N<Button>("FolderButton").Click+=delegate { System.Diagnostics.Process.Start("explorer.exe",store.DirectoryPath); };
@@ -347,9 +362,10 @@ namespace PocketEnglish
    if(selected=="Progress") RenderProgress();
    if(selected=="Settings")
    {
-    settingControls=true; N<CheckBox>("QuietCheck").IsChecked=state.Quiet; N<CheckBox>("TopmostCheck").IsChecked=state.KeepOnTop; settingControls=false;
-    N<SelectableText>("VoiceInfo").Text=englishVoice==null?"No English system voice was found. All quiet practice remains available.":"Offline voice: "+englishVoice+". IPA cards use a broad American pronunciation.";
+    settingControls=true; N<CheckBox>("QuietCheck").IsChecked=state.Quiet; N<CheckBox>("TopmostCheck").IsChecked=state.KeepOnTop;N<ComboBox>("PronunciationCombo").SelectedIndex=state.PronunciationMode=="UK"?0:state.PronunciationMode=="BOTH"?2:1;N<ComboBox>("UiFontCombo").SelectedItem=String.IsNullOrWhiteSpace(state.UiFontName)?"Default":state.UiFontName; settingControls=false;
+    N<SelectableText>("VoiceInfo").Text=englishVoice==null?"No English system voice was found. All quiet practice remains available.":"Offline voice: "+englishVoice+". IPA typeface: Doulos SIL.";
    }
+   UiTypography.Apply(window,state.UiFontName);
   }
   static string CategoryName(string cat) { return cat=="work"?"WORK & CODE":cat=="cars"?"CARS & THE ROAD":"AI & THE NEWS"; }
   void RenderLearn()
@@ -363,8 +379,8 @@ namespace PocketEnglish
    N<SelectableText>("CategoryText").Foreground=Color(has && c.Category=="cars"?"#9A7942":has && c.Category=="news"?"#67829E":"#61816C");
    N<SelectableText>("WordText").Text=has?(hidden?"Read it. Recall it.":c.Term):"All caught up.";
    N<SelectableText>("WordText").FontSize=has && c.Term.Length>21?23:29;
-   N<SelectableText>("IpaText").Text=has?c.Ipa:"";
-   N<SelectableText>("IpaText").FontSize=hidden?23:15;
+   N<SelectableText>("IpaText").Text=has?Phonetics.Format(c.Ipa,c.BritishIpa,state.PronunciationMode):"";
+   N<SelectableText>("IpaText").FontSize=hidden?25:18;
    N<SelectableText>("StressText").Text=has?(hidden?"IPA → recall the word, then reveal":c.Stress.Split('·')[0].Trim()):"Come back when a review is due.";
    N<SelectableText>("IpaText").LookupEnabled=false;
    N<SelectableText>("StressText").LookupEnabled=false;
@@ -426,17 +442,17 @@ namespace PocketEnglish
    string title=visit.Entry==null?visit.Word:visit.Entry.Word;
    var heading=WordText(title,28,"#263D39");heading.FontFamily=new FontFamily("Georgia");panel.Children.Add(heading);
    if(!title.Equals(visit.Word,StringComparison.OrdinalIgnoreCase))panel.Children.Add(WordText("On the page: "+visit.Word+"  →  headword: "+title,10,"#829080"));
-   if(loading){panel.Children.Add(WordText("Finding an offline entry…",12,"#829080"));return;}
+   if(loading){panel.Children.Add(WordText("Finding an offline entry…",12,"#829080"));UiTypography.Apply(window,state.UiFontName);return;}
    var entry=visit.Entry;
    if(entry!=null)
    {
-    if(!String.IsNullOrWhiteSpace(entry.Ipa)){var ipa=WordText(entry.Ipa,15,"#697A70");ipa.LookupEnabled=false;panel.Children.Add(ipa);}
+    if(!String.IsNullOrWhiteSpace(entry.Ipa)||!String.IsNullOrWhiteSpace(entry.BritishIpa)){var ipa=WordText(Phonetics.Format(entry.Ipa,entry.BritishIpa,state.PronunciationMode),18,"#697A70");Phonetics.Apply(ipa);panel.Children.Add(ipa);}
     if(!String.IsNullOrWhiteSpace(entry.Forms))panel.Children.Add(WordText(entry.Forms,10,"#829080"));
     foreach(var sense in entry.Senses)
     {
      var box=new StackPanel{Margin=new Thickness(0,0,0,12)};
      var pos=WordText(WordLookup.PosLabel(sense.PartOfSpeech),11,"#47745D");pos.FontWeight=FontWeights.SemiBold;box.Children.Add(pos);
-     if(!String.IsNullOrWhiteSpace(sense.Ipa) && sense.Ipa!=entry.Ipa){var ipa=WordText(sense.Ipa,13,"#697A70");ipa.LookupEnabled=false;box.Children.Add(ipa);}
+     if((!String.IsNullOrWhiteSpace(sense.Ipa)||!String.IsNullOrWhiteSpace(sense.BritishIpa)) && Phonetics.Format(sense.Ipa,sense.BritishIpa,state.PronunciationMode)!=Phonetics.Format(entry.Ipa,entry.BritishIpa,state.PronunciationMode)){var ipa=WordText(Phonetics.Format(sense.Ipa,sense.BritishIpa,state.PronunciationMode),17,"#697A70");Phonetics.Apply(ipa);box.Children.Add(ipa);}
      box.Children.Add(WordText(sense.Definition,14,"#344C46"));
      if(!String.IsNullOrWhiteSpace(sense.Example)) {box.Children.Add(new Border{BorderBrush=Color("#93AD95"),BorderThickness=new Thickness(2,0,0,0),Padding=new Thickness(10,0,0,0),Child=WordText(sense.Example,14,"#344C46"),Margin=new Thickness(0,3,0,4)});}
      if(!String.IsNullOrWhiteSpace(sense.Usage))box.Children.Add(WordText(sense.Usage,10,"#829080"));
@@ -468,7 +484,7 @@ namespace PocketEnglish
    {
     panel.Children.Add(WordText("FROM THE PAGE",9,"#899585"));panel.Children.Add(WordText(visit.Context,12,"#6F806E"));
    }
-   N<ScrollViewer>("LookupScroll").ScrollToVerticalOffset(visit.Scroll);
+   UiTypography.Apply(window,state.UiFontName);N<ScrollViewer>("LookupScroll").ScrollToVerticalOffset(visit.Scroll);
   }
   void BackFromWord()
   {
@@ -493,6 +509,7 @@ namespace PocketEnglish
     panel.Children.Add(new Border{Child=row,Background=Color("#FFFEFA"),CornerRadius=new CornerRadius(8),Padding=new Thickness(10,9,10,9),Margin=new Thickness(0,0,0,5)});
    }
    if(selected.Count==0) panel.Children.Add(new SelectableText{Text="No matches. Try a shorter word.",Margin=new Thickness(5,15,0,0),FontSize=12});
+   UiTypography.Apply(window,state.UiFontName);
   }
   void RenderProgress()
   {
@@ -504,6 +521,7 @@ namespace PocketEnglish
    var weak=cards.Where(c=>state.Entries.ContainsKey(c.Id) && state.Entries[c.Id].LastRating!="good").OrderBy(c=>Engine.Date(state.Entries[c.Id].DueUtc)).Take(12).ToList();
    foreach(var item in weak) { Card c=item;var row=new DockPanel();var b=new Button{Content="Study ↗",Padding=new Thickness(8,4,8,4),Background=Color("#EBEEE4"),Margin=new Thickness(6,0,0,0)};b.Click+=delegate {Study(c);};DockPanel.SetDock(b,Dock.Right);row.Children.Add(b);row.Children.Add(WordText(c.Term,12,"#53685D"));panel.Children.Add(new Border{Child=row,Margin=new Thickness(0,0,0,5)}); }
    if(weak.Count==0) panel.Children.Add(new SelectableText{Text="Words you find tricky will appear here.",FontSize=11,Foreground=Color("#829080")});
+   UiTypography.Apply(window,state.UiFontName);
   }
   void Export()
   {
@@ -533,9 +551,10 @@ namespace PocketEnglish
    stack.Children.Add(new SelectableText{Text="Something you met today.",FontSize=21,FontFamily=new FontFamily("Georgia"),Margin=new Thickness(0,0,0,13)});
    stack.Children.Add(new SelectableText{Text="Part of speech / 词性 *",FontSize=11,Margin=new Thickness(0,5,0,4)});
    var parts=new ComboBox{ItemsSource=new[]{"noun","verb","adjective","adverb","noun phrase","phrasal verb"},SelectedIndex=0,Padding=new Thickness(7)};stack.Children.Add(parts);
-   string[] labels={"Word / phrase *","IPA · optional","Stress / pronunciation note · optional","Simple English meaning *","English example *","中文释义 · 可选","例句中文 · 可选","Common phrase · optional"};
+   string[] labels={"Word / phrase *","American IPA (US) · optional","Stress / pronunciation note · optional","Simple English meaning *","English example *","中文释义 · 可选","例句中文 · 可选","Common phrase · optional","British IPA (UK) · optional"};
    var boxes=new List<TextBox>();
    foreach(string label in labels) { stack.Children.Add(new SelectableText{Text=label,FontSize=11,Margin=new Thickness(0,8,0,4),Foreground=Color("#6F806E")}); var box=new TextBox{Padding=new Thickness(8,6,8,6),FontSize=12,TextWrapping=TextWrapping.Wrap,MaxLength=label.StartsWith("Word")?80:2000}; boxes.Add(box); stack.Children.Add(box); }
+   foreach(int index in new[]{1,8}){boxes[index].FontFamily=Phonetics.DisplayFont;boxes[index].FontSize=18;UiTypography.KeepIpaFont(boxes[index]);}
    stack.Children.Add(new SelectableText{Text="Topic",FontSize=11,Margin=new Thickness(0,9,0,4)});
    var category=new ComboBox{ItemsSource=new[]{"Work & code","Cars","AI & news"},SelectedIndex=0,Padding=new Thickness(7)}; stack.Children.Add(category);
    var error=new SelectableText{Foreground=Color("#AD5C47"),FontSize=11,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,8,0,0)}; stack.Children.Add(error);
@@ -546,11 +565,12 @@ namespace PocketEnglish
     if(cards.Any(c=>c.Term.Equals(boxes[0].Text.Trim(),StringComparison.OrdinalIgnoreCase))) { error.Text="This word is already in your library."; return; }
     var card=new Card{Id="custom-"+Guid.NewGuid().ToString("N"),Category=new[]{"work","cars","news"}[category.SelectedIndex],Term=boxes[0].Text.Trim(),Ipa=boxes[1].Text.Trim(),Stress=boxes[2].Text.Trim(),Definition=boxes[3].Text.Trim(),Example=boxes[4].Text.Trim(),MeaningZh=boxes[5].Text.Trim(),ExampleZh=boxes[6].Text.Trim(),Collocation=boxes[7].Text.Trim()};
     card.PartOfSpeech=(string)parts.SelectedItem;
+    card.BritishIpa=boxes[8].Text.Trim();
     state.CustomCards.Add(card); cards.Add(card);
     if(!Save()) { state.CustomCards.Remove(card); cards.Remove(card); error.Text="Could not save. Please check the data folder."; return; }
     dialog.Close(); Study(card);
    };
-   dialog.ShowDialog();
+   UiTypography.Apply(dialog,state.UiFontName);dialog.ShowDialog();
   }
  }
  public static class Program
@@ -582,11 +602,24 @@ namespace PocketEnglish
  public static class SelfTest
  {
   static void Check(bool condition,string message) { if(!condition) throw new Exception(message); }
+  static void RenderSurface(Window root,string path)
+  {
+   var surface=(FrameworkElement)root.Content;var resources=surface.Resources;root.Content=null;
+   try
+   {
+    surface.Resources=root.Resources;surface.Measure(new Size(400,500));surface.Arrange(new Rect(0,0,400,500));surface.UpdateLayout();
+    var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap(400,500,96,96,PixelFormats.Pbgra32);bitmap.Render(surface);
+    var pixels=new byte[400*500*4];bitmap.CopyPixels(pixels,400*4,0);Check(Enumerable.Range(0,400*500).Count(i=>pixels[i*4+3]>0)>5000,"Settings render was empty");
+    var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));using(var output=File.Create(path))encoder.Save(output);
+   }
+   finally{surface.Resources=resources;root.Content=surface;}
+  }
   public static int Run(string report)
   {
    var notes=new List<string>(); string directory=Path.Combine(Path.GetDirectoryName(Path.GetFullPath(report)),"test-data-"+Guid.NewGuid().ToString("N"));
    try
    {
+    if(Application.Current==null)new Application();Application.Current.ShutdownMode=ShutdownMode.OnExplicitShutdown;
     var cards=Engine.BuiltIns(); Check(cards.Count==100 && cards.Select(c=>c.Id).Distinct().Count()==100,"Card count / identity");
     Check(cards.Count(c=>c.Category=="work")==40 && cards.Count(c=>c.Category=="cars")==35 && cards.Count(c=>c.Category=="news")==25,"Category mix");
     var incomplete=cards.Where(c=>String.IsNullOrWhiteSpace(c.Term) || !c.Ipa.StartsWith("/",StringComparison.Ordinal) || !c.Ipa.EndsWith("/",StringComparison.Ordinal) || String.IsNullOrWhiteSpace(c.Stress) || String.IsNullOrWhiteSpace(c.Definition) || String.IsNullOrWhiteSpace(c.Example) || String.IsNullOrWhiteSpace(c.MeaningZh) || String.IsNullOrWhiteSpace(c.ExampleZh)).ToList();
@@ -620,6 +653,44 @@ namespace PocketEnglish
     var selectable=new SelectableText{Text="Select this sentence."};selectable.SelectAll();Check(selectable.IsReadOnly && selectable.Selection.Text.Trim()=="Select this sentence.","Selectable read-only content failed");
     using(var iconStream=Assembly.GetExecutingAssembly().GetManifestResourceStream("suzuha.png"))using(var bitmap=new Drawing.Bitmap(iconStream)) {Check(bitmap.GetPixel(0,0).A==0 && bitmap.GetPixel(bitmap.Width-1,bitmap.Height-1).A==0,"Icon background is not transparent");}
     notes.Add("PASS: Read-only content remains selectable; icon corners have zero alpha.");
+    Check(cards.First(c=>c.Term=="threshold").Ipa=="/ˈθreʃ.hoʊld/","Threshold transcription does not match the requested convention");
+    Check(cards.All(c=>Phonetics.Normalize(c.Ipa)==c.Ipa && !c.Ipa.Contains("ɛ")),"Inconsistent learning-card IPA symbols");
+    Check(Phonetics.Normalize("/ˈθrɛʃ.hoʊld/")=="/ˈθreʃ.hoʊld/" && Phonetics.Normalize("/ˈɝnɪŋz/")=="/ˈɝːnɪŋz/" && Phonetics.Normalize("/ɔɪ/")=="/ɔɪ/","IPA compatibility normalization");
+    System.Windows.Media.GlyphTypeface glyph;var typeface=new Typeface(Phonetics.DisplayFont,FontStyles.Normal,FontWeights.Normal,FontStretches.Normal);
+    Check(typeface.TryGetGlyphTypeface(out glyph) && glyph.FontUri.ToString().ToLowerInvariant().Contains("doulossil"),"Embedded Doulos SIL font is unavailable or fell back to a system font");
+    Check(cards.All(c=>!String.IsNullOrWhiteSpace(c.BritishIpa)),"Missing curated British pronunciation");
+    Check(cards.SelectMany(c=>c.Ipa+c.BritishIpa).Distinct().All(ch=>glyph.CharacterToGlyphMap.ContainsKey(ch)),"The bundled font is missing an IPA glyph");
+    var dictionaryIpa=dictionary.Find("pressure",cards).Ipa;Check(dictionaryIpa=="/ˈpreʃ.ɚ/","Expanded dictionary pronunciation convention");
+    var preview=new StackPanel{Width=540,Background=new SolidColorBrush(System.Windows.Media.Color.FromRgb(246,245,239)),Margin=new Thickness(0)};
+    foreach(string word in new[]{"threshold","configuration","register","earnings"}) {var card=cards.First(c=>c.Term==word);preview.Children.Add(new TextBlock{Text=word,FontFamily=new FontFamily("Segoe UI"),FontSize=15,Margin=new Thickness(24,16,24,2)});var line=new SelectableText{Text=card.Ipa,FontSize=26,Margin=new Thickness(24,0,24,12)};Phonetics.Apply(line);preview.Children.Add(line);}
+    preview.Measure(new Size(540,Double.PositiveInfinity));preview.Arrange(new Rect(0,0,540,preview.DesiredSize.Height));preview.UpdateLayout();
+    var bitmapPreview=new System.Windows.Media.Imaging.RenderTargetBitmap(540,(int)Math.Ceiling(preview.ActualHeight),96,96,PixelFormats.Pbgra32);bitmapPreview.Render(preview);
+    var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmapPreview));using(var output=File.Create(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(report)),"ipa-v11-preview.png")))encoder.Save(output);
+    notes.Add("PASS: Requested threshold IPA; consistent core/expanded symbols; embedded font identity and glyph coverage; rendered IPA preview.");
+    var threshold=cards.First(c=>c.Term=="threshold");Check(Phonetics.Format(threshold.Ipa,threshold.BritishIpa,"UK")=="/ˈθreʃ.həʊld/" && Phonetics.Format(threshold.Ipa,threshold.BritishIpa,"US")=="/ˈθreʃ.hoʊld/" && Phonetics.Format(threshold.Ipa,threshold.BritishIpa,"BOTH").Contains("UK  /ˈθreʃ.həʊld/\nUS  /ˈθreʃ.hoʊld/"),"Pronunciation modes");
+    Check(Phonetics.Format("/test/",null,"UK").Contains("not available"),"Unavailable British pronunciation was mislabeled");
+    var input=new TextBox{FontFamily=Phonetics.DisplayFont};UiTypography.KeepIpaFont(input);var inputHost=new StackPanel();inputHost.Children.Add(input);UiTypography.Apply(inputHost,"Arial");Check(input.FontFamily.Source==Phonetics.DisplayFont.Source,"UI font changed an editable pronunciation field");
+    Check(!String.IsNullOrWhiteSpace(dictionary.Find("pressure",cards).BritishIpa),"Expanded British pronunciation missing");
+    var oldSettings=store.Parse("{\"Version\":1,\"CurrentId\":null,\"Entries\":{},\"History\":[],\"CustomCards\":[]}");Check(oldSettings.PronunciationMode=="US" && oldSettings.UiFontName=="","Legacy settings defaults");
+    string uiDirectory=Path.Combine(directory,"ui-settings");var uiStore=new StateStore(uiDirectory);uiStore.Save(new AppState{CurrentId="w04",PronunciationMode="BOTH",UiFontName="Arial",Left=100,Top=100});
+    using(var signal=new EventWaitHandle(false,EventResetMode.AutoReset))
+    {
+     var pocket=new PocketApp(uiDirectory,signal);var flags=BindingFlags.Instance|BindingFlags.NonPublic;var root=(Window)typeof(PocketApp).GetField("window",flags).GetValue(pocket);root.Left=100;root.Top=100;
+     try
+     {
+      typeof(PocketApp).GetMethod("ShowPage",flags).Invoke(pocket,new object[]{"Settings"});
+      var mode=(ComboBox)root.FindName("PronunciationCombo");var font=(ComboBox)root.FindName("UiFontCombo");var ipa=(SelectableText)root.FindName("IpaText");var word=(SelectableText)root.FindName("WordText");
+      Check(mode.SelectedIndex==2 && font.SelectedItem as string=="Arial","Saved settings did not populate controls");
+      mode.SelectedIndex=0;Check(ipa.Text=="/ˈθreʃ.həʊld/","British selector did not update the learning card");mode.SelectedIndex=1;Check(ipa.Text=="/ˈθreʃ.hoʊld/","American selector did not update the learning card");mode.SelectedIndex=2;Check(ipa.Text.Contains("UK")&&ipa.Text.Contains("US"),"Dual selector did not update the learning card");
+      font.SelectedItem="Georgia";Check(word.FontFamily.Source=="Georgia" && ipa.FontFamily.Source==Phonetics.DisplayFont.Source,"UI font selector changed the IPA font or missed learning text");
+      var reopened=uiStore.Load();Check(reopened.PronunciationMode=="BOTH"&&reopened.UiFontName=="Georgia"&&reopened.CurrentId=="w04"&&reopened.History.Count==0,"Preferences did not persist independently of progress");
+      RenderSurface(root,Path.Combine(Path.GetDirectoryName(Path.GetFullPath(report)),"settings-v11-preview.png"));
+      typeof(PocketApp).GetMethod("ShowPage",flags).Invoke(pocket,new object[]{"Learn"});RenderSurface(root,Path.Combine(Path.GetDirectoryName(Path.GetFullPath(report)),"ipa-dual-v11-preview.png"));
+      font.SelectedItem="Default";Check(ipa.FontFamily.Source==Phonetics.DisplayFont.Source && word.FontFamily.Source=="Georgia" && root.FontFamily.Source.Contains("Segoe"),"Default font restoration");
+     }
+     finally{root.Close();}
+    }
+    notes.Add("PASS: UK/US/dual selectors update the card and persist; legacy defaults; missing-data handling; UI font changes/reset preserve IPA; rendered settings preview.");
     File.WriteAllLines(report,notes.Concat(new[]{"ALL CHECKS PASSED","Isolated data: "+directory}),new UTF8Encoding(false)); return 0;
    }
    catch(Exception e) { notes.Add("FAIL: "+e); File.WriteAllLines(report,notes,new UTF8Encoding(false)); return 1; }

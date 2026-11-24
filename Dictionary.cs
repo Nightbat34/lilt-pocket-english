@@ -19,12 +19,14 @@ namespace PocketEnglish
   public string MeaningZh { get; set; }
   public string ExampleZh { get; set; }
   public string Ipa { get; set; }
+  public string BritishIpa { get; set; }
   public string Usage { get; set; }
  }
  public class WordEntry
  {
   public string Word { get; set; }
   public string Ipa { get; set; }
+  public string BritishIpa { get; set; }
   public string Forms { get; set; }
   public string Source { get; set; }
   public List<WordSense> Senses { get; set; }
@@ -82,14 +84,14 @@ namespace PocketEnglish
     case "w05":add("verb","To record or enter information in an official list or system.","Register the gateway before connecting the meters.","登记；注册","连接电表之前先注册网关。",null);break;
     case "w13":add("verb","To request information from a database or system.","Query the history table for readings from this device.","查询数据库或系统","查询历史表中这台设备的读数。",null);break;
     case "w17":add("verb","To create a structure that helps locate stored information.","Index the timestamp column to speed up time-based searches.","建立索引","为时间戳列建立索引，加快按时间搜索的速度。",null);break;
-    case "w20":add("noun","An extra copy of an existing item.","This record is a duplicate of the previous entry.","重复项；副本","这条记录是上一条的重复项。",null);add("verb","To make an extra copy of something.","Duplicate the template before changing its addresses.","复制；使重复","修改地址前先复制模板。","/ˈduːplɪkeɪt/");break;
+    case "w20":add("noun","An extra copy of an existing item.","This record is a duplicate of the previous entry.","重复项；副本","这条记录是上一条的重复项。",null);add("verb","To make an extra copy of something.","Duplicate the template before changing its addresses.","复制；使重复","修改地址前先复制模板。","/ˈduː.plə.keɪt/");break;
     case "w32":add("verb","To divide or move into a separate path.","The parser branches according to the protocol type.","分支；分成不同路径","解析器根据协议类型走向不同分支。",null);break;
     case "c01":add("verb","To run an engine without moving the vehicle.","Let the engine idle while you listen for an unusual noise.","怠速运转","让发动机怠速运转，同时留意异常声音。",null);break;
     case "c02":add("noun","An unexpected stop in the running of an engine.","The driver reported a stall at a traffic light.","熄火；发动机意外停止运转","驾驶员报告车辆在红灯处发生了一次熄火。",null);break;
     case "c03":add("noun","An occasion when an engine cylinder does not fire correctly.","A misfire made the engine shake at idle.","发动机失火；燃烧异常","一次失火导致发动机怠速抖动。",null);break;
     case "c07":add("verb","To limit power, speed, or the rate of an activity.","The server may throttle requests when traffic is high.","限制功率、速度或处理速率","流量较高时，服务器可能限制请求速率。",null);break;
     case "c16":add("verb","To escape accidentally through a hole or gap.","Coolant can leak through a damaged gasket.","泄漏；渗漏","冷却液可能从损坏的密封垫处泄漏。",null);break;
-    case "c25":add("verb","To ask for a product to be returned so a fault can be fixed.","The manufacturer may recall cars with faulty fuel pumps.","召回产品","制造商可能召回燃油泵存在故障的汽车。","/rɪˈkɔl/");break;
+    case "c25":add("verb","To ask for a product to be returned so a fault can be fixed.","The manufacturer may recall cars with faulty fuel pumps.","召回产品","制造商可能召回燃油泵存在故障的汽车。","/rɪˈkɔːl/");break;
     case "c32":add("verb","To vary between stated limits.","Battery temperatures range from cool to warm during charging.","在一定范围内变化","充电过程中，电池温度从偏凉变化到温热。",null);break;
     case "n03":add("verb","To break a small piece off a hard surface.","Loose stones can chip the paint on a car.","使崩掉一小块；使缺损","松散的石子可能崩掉车漆。",null);break;
     case "n09":add("verb","To estimate what is likely to happen.","Analysts forecast slower growth next year.","预测；预估","分析师预测明年的增长会放缓。",null);break;
@@ -100,6 +102,9 @@ namespace PocketEnglish
     case "n22":add("verb","To ask firmly for something or require it.","The new model demands more computing power.","强烈要求；需要","新模型需要更多算力。",null);break;
     case "n25":add("verb","To increase suddenly and strongly.","Demand surged after the product launch.","激增；急剧上升","产品推出后，需求激增。",null);break;
    }
+   entry.BritishIpa=Phonetics.Normalize(c.BritishIpa);
+   foreach(var sense in entry.Senses){sense.BritishIpa=entry.BritishIpa;if(c.Id=="w03"&&sense.PartOfSpeech=="verb")sense.BritishIpa="/ˌmɪsˈmætʃ/";if(c.Id=="w20"&&sense.PartOfSpeech=="verb")sense.BritishIpa="/ˈdjuː.plɪ.keɪt/";if(c.Id=="c25"&&sense.PartOfSpeech=="verb")sense.BritishIpa="/rɪˈkɔːl/";}
+   entry.Ipa=Phonetics.Normalize(entry.Ipa);foreach(var sense in entry.Senses)sense.Ipa=Phonetics.Normalize(sense.Ipa);
    return entry;
   }
   public static string Forms(string word,string pos)
@@ -154,7 +159,7 @@ namespace PocketEnglish
   {
    if(!Regex.IsMatch(word??"",@"^[a-zA-Z][a-zA-Z'-]{0,79}$"))return null;
    ServicePointManager.SecurityProtocol|=SecurityProtocolType.Tls12;
-   var request=(HttpWebRequest)WebRequest.Create("https://api.dictionaryapi.dev/api/v2/entries/en/"+Uri.EscapeDataString(word)); request.Timeout=7000;request.ReadWriteTimeout=7000;request.UserAgent="LiltPocketEnglish/1.0";
+   var request=(HttpWebRequest)WebRequest.Create("https://api.dictionaryapi.dev/api/v2/entries/en/"+Uri.EscapeDataString(word)); request.Timeout=7000;request.ReadWriteTimeout=7000;request.UserAgent="LiltPocketEnglish/1.1";
    using(var response=request.GetResponse())using(var stream=response.GetResponseStream())using(var reader=new StreamReader(stream,Encoding.UTF8))
    {
     var data=new JavaScriptSerializer().DeserializeObject(reader.ReadToEnd()) as object[]; if(data==null || data.Length==0)return null;

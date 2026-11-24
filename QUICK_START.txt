@@ -1,10 +1,14 @@
-Lilt Pocket English · V1.0
+Lilt Pocket English · V1.1
 
 运行：双击 PocketEnglish.exe。无需安装或登录。
 要求：Windows 10 / 11，64 位，系统具备 .NET Framework 4.x WPF 组件。
 
 学习：
 默认静音，先看英文单词、音标、例句和英文简释。
+音标采用内置 Doulos SIL 字体，无需安装；例如 threshold /ˈθreʃ.hoʊld/。
+⚙ 设置：音标可选择英式、美式、英式&美式三种模式；双显时 UK、US 分行呈现。
+⚙ 设置：界面字体可选择系统字体或 Default 恢复默认；不影响音标字体，选择自动保存。
+ˈ 表示主重音，ˌ 表示次重音，. 表示音节边界；/e/ 对应 head 中的元音。
 中文仅在点击“查看中文释义”后展开。
 词性直接标注，Uses & word forms 可查看对应词义、例句和词形。
 双击英文单词可进入解释页，解释里的单词也可继续双击；Back 返回。
@@ -20,6 +24,7 @@ Progress：查看学习记录和需要继续练习的词。
 ×：保存并退出。
 −：隐藏到系统托盘；点击铃羽托盘图标恢复。
 ⚙：静音、置顶、导出备份、恢复备份。
+自建词卡可以分别填写 American IPA (US) 和 British IPA (UK)。
 默认不自动播放声音；需要朗读时，在设置关闭静音后点击 ♫。
 
 快捷键：
@@ -36,4 +41,4 @@ Progress：查看学习记录和需要继续练习的词。
 无每日必须完成的数量，可以随时打开、随时停止。
 
 项目：https://github.com/Nightbat34/lilt-pocket-english
-发布：https://github.com/Nightbat34/lilt-pocket-english/releases/tag/v1.0.0
+发布：https://github.com/Nightbat34/lilt-pocket-english/releases/tag/v1.1.0

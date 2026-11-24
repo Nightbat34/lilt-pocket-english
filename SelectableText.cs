@@ -16,6 +16,7 @@ namespace PocketEnglish
   public TextWrapping TextWrapping { get; set; }
   public TextTrimming TextTrimming { get; set; }
   public bool LookupEnabled { get; set; }
+  public bool IsPhonetic { get; set; }
   public TextAlignment TextAlignment { get { return paragraph.TextAlignment; } set { paragraph.TextAlignment=value; } }
   public double LineHeight { get { return paragraph.LineHeight; } set { paragraph.LineHeight=value; } }
   public InlineCollection Inlines { get { return paragraph.Inlines; } }

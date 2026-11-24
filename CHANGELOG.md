@@ -1,5 +1,15 @@
 # Changelog
 
+## V1.1 — 2026-11-24
+
+- Embeds Doulos SIL 7.000 for IPA in learning cards, IPA-first mode, word notes, alternate senses and the custom-card pronunciation field.
+- Uses familiar learner-dictionary symbols, including `/e/` for the vowel in *head*, consistent length marks and visible syllable boundaries. `threshold` is `/ˈθreʃ.hoʊld/`.
+- Updates all 100 curated learning transcriptions and rebuilds expanded dictionary pronunciation formatting.
+- Verifies the embedded font is used without system fallback and covers all required IPA characters.
+- Adds persistent British, American and British & American display modes, with both accents reviewed for all 100 learning cards and British data added to general lookup where available.
+- Adds a persistent interface-font selector and a separate typography interface; IPA display and editable IPA fields stay locked to Doulos SIL.
+- Keeps the existing vocabulary mix, review behavior, transparent icon, copying, word lookup and saved progress.
+
 ## V1.0 — 2026-11-24
 
 V1.0 public release, refreshed in place on 2026-11-24.

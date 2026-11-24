@@ -8,9 +8,9 @@ A small, quiet, English-first vocabulary companion for Windows. Open it for a wo
 
 ## Download and run
 
-Download **PocketEnglish.exe** or **Lilt-Pocket-English-v1.0.0-win-x64.zip** from [V1.0](https://github.com/Nightbat34/lilt-pocket-english/releases/tag/v1.0.0). Double-click the executable. The ZIP contains the same executable plus these instructions.
+Download **PocketEnglish.exe** or **Lilt-Pocket-English-v1.1.0-win-x64.zip** from [V1.1](https://github.com/Nightbat34/lilt-pocket-english/releases/tag/v1.1.0). Double-click the executable. The ZIP contains the same executable plus these instructions.
 
-从 [V1.0 发布页](https://github.com/Nightbat34/lilt-pocket-english/releases/tag/v1.0.0) 下载 EXE 直接运行，或下载 ZIP 后解压运行。无需安装、登录或启动浏览器。
+从 [V1.1 发布页](https://github.com/Nightbat34/lilt-pocket-english/releases/tag/v1.1.0) 下载 EXE 直接运行，或下载 ZIP 后解压运行。无需安装、登录或启动浏览器。
 
 - **Platform:** Windows 10 / 11, x64, with .NET Framework 4.x WPF and System.Speech components available.
 - **Window:** 400 × 500 logical pixels; Windows display scaling applies.
@@ -25,6 +25,9 @@ Download **PocketEnglish.exe** or **Lilt-Pocket-English-v1.0.0-win-x64.zip** fro
 - **Select and copy:** drag over text, then press Ctrl+C or use the right-click menu. Ctrl+double-click selects a word without opening its dictionary entry.
 - **Offline dictionary:** more than 100,000 general entries, plus technical overrides, compressed into the EXE. Plurals, common verb forms and irregular forms can resolve to their headword. An explicit online lookup is available for missing entries; ordinary learning stays offline.
 - **Quiet pronunciation practice:** switch to **IPA first**, recall the word, then reveal it.
+- **Clear IPA:** Doulos SIL is embedded and used for pronunciation text, without installing a system font. Learning cards use `/e/` for the vowel in *head*, length marks, stress marks and syllable dots; for example, **threshold** `/ˈθreʃ.hoʊld/`.
+- **Pronunciation modes:** Settings offers **British**, **American**, or **British & American**. Dual mode labels UK and US on separate lines. All 100 learning cards have both accents. General lookup uses available British data and explicitly indicates when an accent is unavailable.
+- **Interface font:** Settings can select an installed font or restore **Default**. The choice is saved. IPA text and pronunciation input fields keep the embedded Doulos SIL font.
 - **Separate feedback:** **Again** for forgotten meanings, **Sound unsure** for unfamiliar pronunciation, **Got it** for familiar meanings and pronunciation.
 - **Spaced reviews:** forgotten words return after 10 minutes; pronunciation practice after a day; familiar cards gradually move to longer intervals. Due reviews are prioritized. Each full block of 20 new built-in cards uses an 8 / 7 / 5 topic mix.
 - **Library:** search words, examples and Chinese meanings; filter topics; add your own word or phrase with an English explanation and example.
@@ -42,7 +45,7 @@ The topic mix applies to the selection of new cards, rather than forcing overdue
 | Run the EXE again | Restore the existing instance for the same data directory |
 | **Space** | Reveal the word in IPA mode, or toggle Chinese |
 | **1 / 2 / 3** | Again / Sound unsure / Got it |
-| **⚙** | Quiet mode, keep on top, backup export and restore |
+| **⚙** | Pronunciation mode, interface font, quiet mode, keep on top, backups |
 
 Progress is saved after every answer and when closing. It lives at `%LOCALAPPDATA%\LiltPocketEnglish\progress.json`, with the previous save in `progress.json.bak`. Moving or replacing the EXE does not move or reset your progress. The data format remains version 1.
 
@@ -57,7 +60,7 @@ No NuGet packages are required. From a PowerShell prompt in the repository:
 The build uses the Windows .NET Framework C# compiler and creates `release\PocketEnglish.exe`. To choose another output directory:
 
 ```powershell
-.\build.ps1 -OutputDirectory .\dist\v1.0.0
+.\build.ps1 -OutputDirectory .\dist\v1.1.0
 ```
 
 The application icon is embedded in the EXE and used for the window and tray. The Suzuha cutout has a genuine transparent background. `assets/suzuha.ico` contains 16, 20, 24, 32, 40, 48, 64, 128 and 256 pixel images. Regenerate it from the transparent PNG with:
@@ -66,7 +69,13 @@ The application icon is embedded in the EXE and used for the window and tray. Th
 .\tools\make-icon.ps1
 ```
 
-The offline dictionary is packaged as indexed gzip chunks in `assets/dictionary.bin`; only the relevant initial-letter chunk is searched, and results are cached on demand. It is not fully loaded into memory at startup. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for sources, licensing and adaptation details. `tools/build-dictionary.cjs` regenerates the bundle from the named upstream snapshots in `validation/dictionary-source/`.
+The offline dictionary is stored as numbered `assets/dictionary-chunk-*.bin` files to keep individual source files small. The build joins them and embeds a single indexed gzip resource in the EXE; the source parts are not runtime dependencies. Only the relevant initial-letter chunk is searched, and results are cached on demand. It is not fully loaded into memory at startup. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for sources, licensing and adaptation details. `tools/build-dictionary.cjs` regenerates the parts from the named upstream snapshots in `validation/dictionary-source/`.
+
+The build joins the numbered Doulos SIL source chunks and packages the unmodified font as a WPF application resource inside the EXE. No system-font installation, download on startup or font-cache extraction is needed. `tools/ipa-v11.cjs` records the curated V1.1 learning transcriptions. General dictionary syllable boundaries are generated from pronunciation data; they are not claimed to reproduce any particular dictionary's complete editorial transcription.
+
+`tools/ipa-uk-v11.cjs` records the reviewed British learning transcriptions. The expanded dictionary additionally uses the `en_UK.txt` IPA-dict snapshot. `Phonetics.Format` selects US, UK or both; missing British values are not generated by changing American vowel symbols. `UiTypography.Apply` is the interface-font extension point; pronunciation controls are explicitly excluded, including editable pronunciation fields.
+
+Pronunciation key: `/ˈ/` primary stress, `/ˌ/` secondary stress, `.` syllable boundary, `/e/` as in *head*, `/ɚ/` as in American *mother*, `/ɝː/` as in American *bird*. A stress mark also marks the start of a syllable, so a dot is not repeated immediately before it.
 
 ## Verification
 

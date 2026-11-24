@@ -1,6 +1,10 @@
 release/
 dist/
 validation/
+assets/dictionary.bin
+assets/dictionary-1.bin
+assets/dictionary-2.bin
+assets/fonts/DoulosSIL-Regular.ttf
 test-data-*/
 core-tests.txt
 *.tmp

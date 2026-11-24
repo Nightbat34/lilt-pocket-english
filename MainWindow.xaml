@@ -68,6 +68,11 @@
      <local:SelectableText Text="Make room for English." FontFamily="Georgia" FontSize="20" Margin="0,7,0,16"/>
      <CheckBox x:Name="QuietCheck" Content="Quiet mode · 静音" Margin="0,0,0,12" FontSize="13"/><local:SelectableText Text="No sound unless you switch this off and press ♫." FontSize="10" Foreground="#829080" TextWrapping="Wrap" Margin="20,-6,0,14"/>
      <CheckBox x:Name="TopmostCheck" Content="Keep on top · 窗口置顶" Margin="0,0,0,17" FontSize="13"/>
+     <local:SelectableText Text="Pronunciation / 音标显示" FontSize="11" Margin="0,0,0,5"/>
+     <ComboBox x:Name="PronunciationCombo" SelectedIndex="1" Margin="0,0,0,12"><ComboBoxItem Content="英式 · British (UK)"/><ComboBoxItem Content="美式 · American (US)"/><ComboBoxItem Content="英式 &amp; 美式 · UK &amp; US"/></ComboBox>
+     <local:SelectableText Text="App font / 界面字体" FontSize="11" Margin="0,0,0,5"/>
+     <ComboBox x:Name="UiFontCombo" Margin="0,0,0,5"/>
+     <local:SelectableText Text="Changes interface text only. IPA stays in Doulos SIL." FontSize="10" Foreground="#829080" Margin="0,0,0,14" TextWrapping="Wrap"/>
      <local:SelectableText Text="YOUR MIX" FontSize="9" Foreground="#829080"/><local:SelectableText Text="Work &amp; code   40%&#10;Cars                  35%&#10;AI &amp; news        25%" FontSize="12" LineHeight="23" Margin="0,7,0,15"/>
      <local:SelectableText x:Name="VoiceInfo" FontSize="11" Foreground="#829080" TextWrapping="Wrap" Margin="0,0,0,12"/>
      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button x:Name="ExportButton" Content="Export backup"/><Button x:Name="ImportButton" Grid.Column="2" Content="Restore backup"/></Grid>
