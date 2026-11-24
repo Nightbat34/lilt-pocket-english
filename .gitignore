@@ -1,0 +1,14 @@
+release/
+dist/
+validation/
+test-data-*/
+core-tests.txt
+*.tmp
+*.bak
+progress.json
+progress.json.*
+Lilt-backup-*.json
+before-restore-*.json
+damaged-*.json
+.vs/
+*.user
