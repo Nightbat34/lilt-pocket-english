@@ -20,6 +20,10 @@ Download **PocketEnglish.exe** or **Lilt-Pocket-English-v1.0.0-win-x64.zip** fro
 
 - **100 built-in cards:** work and code **40%**, cars **35%**, AI and news **25%**.
 - **English first:** word, pronunciation, stress cue, a short contextual example, and a simple English explanation. Chinese stays behind “查看中文释义”.
+- **Parts of speech:** a visible noun / verb / adjective label; **Uses & word forms** opens the corresponding meanings, examples and inflections. Words with more than one curated use show each sense separately.
+- **Double-click to explore:** English words in learning text, examples, definitions and word views open an in-app dictionary page. Nested lookups have a Back button and preserve the original learning card. Very common function words such as “a”, “is” and “are” are skipped.
+- **Select and copy:** drag over text, then press Ctrl+C or use the right-click menu. Ctrl+double-click selects a word without opening its dictionary entry.
+- **Offline dictionary:** more than 100,000 general entries, plus technical overrides, compressed into the EXE. Plurals, common verb forms and irregular forms can resolve to their headword. An explicit online lookup is available for missing entries; ordinary learning stays offline.
 - **Quiet pronunciation practice:** switch to **IPA first**, recall the word, then reveal it.
 - **Separate feedback:** **Again** for forgotten meanings, **Sound unsure** for unfamiliar pronunciation, **Got it** for familiar meanings and pronunciation.
 - **Spaced reviews:** forgotten words return after 10 minutes; pronunciation practice after a day; familiar cards gradually move to longer intervals. Due reviews are prioritized. Each full block of 20 new built-in cards uses an 8 / 7 / 5 topic mix.
@@ -56,15 +60,17 @@ The build uses the Windows .NET Framework C# compiler and creates `release\Pocke
 .\build.ps1 -OutputDirectory .\dist\v1.0.0
 ```
 
-The application icon is embedded in the EXE and used for the window and tray. `assets/suzuha.ico` contains 16, 20, 24, 32, 40, 48, 64, 128 and 256 pixel images. It is a format conversion of the supplied picture, with its composition and background preserved. Regenerate it with:
+The application icon is embedded in the EXE and used for the window and tray. The Suzuha cutout has a genuine transparent background. `assets/suzuha.ico` contains 16, 20, 24, 32, 40, 48, 64, 128 and 256 pixel images. Regenerate it from the transparent PNG with:
 
 ```powershell
 .\tools\make-icon.ps1
 ```
 
+The offline dictionary is packaged as indexed gzip chunks in `assets/dictionary.bin`; only the relevant initial-letter chunk is searched, and results are cached on demand. It is not fully loaded into memory at startup. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for sources, licensing and adaptation details. `tools/build-dictionary.cjs` regenerates the bundle from the named upstream snapshots in `validation/dictionary-source/`.
+
 ## Verification
 
-The executable contains isolated checks for the complete vocabulary, topic balance, due review priority, meaning versus pronunciation state, Shanghai calendar boundaries, progress continuity, damaged-file recovery, custom cards, and backup validation.
+The executable contains isolated checks for the complete vocabulary, topic balance, due review priority, meaning versus pronunciation state, Shanghai calendar boundaries, progress continuity, damaged-file recovery, custom cards, backup validation, parts of speech, corresponding examples, inflection lookup, incidental-word lookup, selectable content and icon alpha transparency.
 
 ```powershell
 $report = Join-Path $PWD 'core-tests.txt'

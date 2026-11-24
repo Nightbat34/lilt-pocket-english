@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Lilt · Pocket English" Width="400" Height="500" ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True" Background="Transparent" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI, Microsoft YaHei UI" Foreground="#263D39" UseLayoutRounding="True">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:PocketEnglish;assembly=PocketEnglish" Title="Lilt · Pocket English" Width="400" Height="500" ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True" Background="Transparent" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI, Microsoft YaHei UI" Foreground="#263D39" UseLayoutRounding="True">
  <Window.Resources>
   <Style TargetType="Button">
    <Setter Property="Cursor" Value="Hand"/><Setter Property="Foreground" Value="#344C46"/><Setter Property="Background" Value="#EEEEE8"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="12,8"/><Setter Property="FontSize" Value="12"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -22,23 +22,24 @@
     <Grid x:Name="LearnPage">
      <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/><RowDefinition Height="47"/></Grid.RowDefinitions>
      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="102"/></Grid.ColumnDefinitions>
-      <StackPanel><TextBlock Text="A little, often." FontSize="21" FontFamily="Georgia"/><TextBlock x:Name="SessionCaption" FontSize="10" Foreground="#859087" Margin="0,3,0,0"/></StackPanel>
+      <StackPanel><local:SelectableText Text="A little, often." FontSize="21" FontFamily="Georgia"/><local:SelectableText x:Name="SessionCaption" FontSize="10" Foreground="#859087" Margin="0,3,0,0"/></StackPanel>
       <Button x:Name="ModeButton" Grid.Column="1" Content="IPA first  ↗" FontSize="10" Padding="7,5" VerticalAlignment="Center" Background="#E7EBE1" ToolTip="先看音标，回想单词；再次点击切回单词模式"/>
      </Grid>
      <Border Grid.Row="1" Background="#FFFEFA" BorderBrush="#E2E5DC" BorderThickness="1" CornerRadius="14">
-      <ScrollViewer x:Name="CardScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="18,14,18,12">
+      <ScrollViewer x:Name="CardScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="18,11,18,9">
        <StackPanel>
-        <Grid Margin="0,0,0,9"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="CategoryText" FontSize="9" FontWeight="SemiBold" Foreground="#61816C" VerticalAlignment="Center"/><Button x:Name="SpeakButton" Grid.Column="1" Content="♫" Background="#F1F3EB" Padding="8,2" FontSize="13" ToolTip="Read word and sentence / 朗读；静音模式下不可用"/></Grid>
-        <TextBlock x:Name="WordText" FontSize="29" FontFamily="Georgia" TextWrapping="Wrap" LineHeight="34"/>
-        <TextBlock x:Name="IpaText" FontSize="15" Foreground="#697A70" Margin="0,5,0,0" TextWrapping="Wrap"/>
-        <TextBlock x:Name="StressText" FontSize="10" Foreground="#879187" Margin="0,3,0,0" TextWrapping="Wrap"/>
+        <Grid Margin="0,0,0,5"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><local:SelectableText x:Name="CategoryText" FontSize="9" FontWeight="SemiBold" Foreground="#61816C" VerticalAlignment="Center"/><Button x:Name="SpeakButton" Grid.Column="1" Content="♫" Background="#F1F3EB" Padding="8,2" FontSize="13" ToolTip="Read word and sentence / 朗读；静音模式下不可用"/></Grid>
+        <local:SelectableText x:Name="WordText" FontSize="29" FontFamily="Georgia" TextWrapping="Wrap" LineHeight="34"/>
+        <local:SelectableText x:Name="IpaText" FontSize="15" Foreground="#697A70" Margin="0,5,0,0" TextWrapping="Wrap"/>
+        <local:SelectableText x:Name="StressText" FontSize="10" Foreground="#879187" Margin="0,3,0,0" TextWrapping="Wrap"/>
         <Button x:Name="RevealWordButton" Content="Reveal word" HorizontalAlignment="Left" Margin="0,9,0,0" Background="#E4EDE4" Padding="12,6"/>
-        <Border x:Name="ExampleBorder" BorderBrush="#93AD95" BorderThickness="2,0,0,0" Padding="12,0,0,0" Margin="0,16,0,0"><TextBlock x:Name="ExampleText" FontSize="17" LineHeight="25" TextWrapping="Wrap"/></Border>
-        <TextBlock Text="IN PLAIN ENGLISH" FontSize="8" FontWeight="SemiBold" Foreground="#8B958A" Margin="0,14,0,5"/>
-        <TextBlock x:Name="DefinitionText" FontSize="12" Foreground="#53685D" TextWrapping="Wrap" LineHeight="19"/>
-        <TextBlock x:Name="CollocationText" FontSize="10" Foreground="#869185" Margin="0,9,0,0" TextWrapping="Wrap"/>
-        <Button x:Name="ChineseButton" Content="查看中文释义  ＋" Background="Transparent" Foreground="#8B958A" FontSize="10" Padding="0,8,0,1" HorizontalAlignment="Left" Margin="0,6,0,0"/>
-        <Border x:Name="ChineseBox" Background="#F3F3EB" CornerRadius="7" Padding="10,8" Margin="0,8,0,0"><TextBlock x:Name="ChineseText" FontSize="11" TextWrapping="Wrap" Foreground="#657267" LineHeight="18"/></Border>
+        <Border x:Name="ExampleBorder" BorderBrush="#93AD95" BorderThickness="2,0,0,0" Padding="12,0,0,0" Margin="0,10,0,0"><local:SelectableText x:Name="ExampleText" FontSize="16" LineHeight="23" TextWrapping="Wrap"/></Border>
+        <local:SelectableText x:Name="SenseLabelText" Text="NOUN · n." FontSize="10" FontWeight="SemiBold" Foreground="#8B958A" Margin="0,8,0,4"/>
+        <local:SelectableText x:Name="DefinitionText" FontSize="12" Foreground="#53685D" TextWrapping="Wrap" LineHeight="19"/>
+        <local:SelectableText x:Name="CollocationText" FontSize="10" Foreground="#869185" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        <Button x:Name="UsesButton" Content="Uses &amp; word forms  ↗" Background="Transparent" Foreground="#54745C" FontSize="10" Padding="0,3,0,0" HorizontalAlignment="Left"/>
+        <Button x:Name="ChineseButton" Content="查看中文释义  ＋" Background="Transparent" Foreground="#8B958A" FontSize="10" Padding="0,5,0,1" HorizontalAlignment="Left" Margin="0,3,0,0"/>
+        <Border x:Name="ChineseBox" Background="#F3F3EB" CornerRadius="7" Padding="10,8" Margin="0,8,0,0"><local:SelectableText x:Name="ChineseText" FontSize="11" TextWrapping="Wrap" Foreground="#657267" LineHeight="18"/></Border>
        </StackPanel>
       </ScrollViewer>
      </Border>
@@ -48,32 +49,34 @@
       <Button x:Name="GotItButton" Grid.Column="4" Content="Got it  →" Background="#315A49" Foreground="White" ToolTip="3 · 词义和读音都熟悉" Padding="5,7"/>
      </Grid>
     </Grid>
+    <Grid x:Name="LookupPage" Visibility="Collapsed"><Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="*"/><RowDefinition Height="26"/></Grid.RowDefinitions><Grid><Button x:Name="LookupBack" Content="← Back" HorizontalAlignment="Left" Padding="10,6" Background="#E5EBDE"/><local:SelectableText Text="Word notes." Width="150" FontFamily="Georgia" FontSize="20" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid><ScrollViewer x:Name="LookupScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto"><StackPanel x:Name="LookupContent" Margin="0,5,8,8"/></ScrollViewer><local:SelectableText Grid.Row="2" Text="Double-click a word to explore · drag to select and copy" FontSize="9" Foreground="#829080" VerticalAlignment="Center"/></Grid>
     <Grid x:Name="LibraryPage" Visibility="Collapsed"><Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="37"/><RowDefinition Height="32"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-     <Grid><TextBlock Text="Your word shelf." FontSize="21" FontFamily="Georgia" VerticalAlignment="Center"/><Button x:Name="AddButton" Content="＋ Add" HorizontalAlignment="Right" Padding="10,5" Background="#E4EBDD"/></Grid>
+     <Grid><local:SelectableText Text="Your word shelf." FontSize="21" FontFamily="Georgia" VerticalAlignment="Center"/><Button x:Name="AddButton" Content="＋ Add" HorizontalAlignment="Right" Padding="10,5" Background="#E4EBDD"/></Grid>
      <TextBox x:Name="SearchBox" Grid.Row="1" ToolTip="Search English or Chinese / 搜索单词、例句或中文" VerticalAlignment="Top"/>
-     <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="115"/></Grid.ColumnDefinitions><TextBlock x:Name="LibraryCount" FontSize="10" VerticalAlignment="Center" Foreground="#829080"/><ComboBox x:Name="CategoryFilter" Grid.Column="1" SelectedIndex="0"><ComboBoxItem Content="All topics"/><ComboBoxItem Content="Work &amp; code"/><ComboBoxItem Content="Cars"/><ComboBoxItem Content="AI &amp; news"/></ComboBox></Grid>
+     <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="115"/></Grid.ColumnDefinitions><local:SelectableText x:Name="LibraryCount" FontSize="10" VerticalAlignment="Center" Foreground="#829080"/><ComboBox x:Name="CategoryFilter" Grid.Column="1" SelectedIndex="0"><ComboBoxItem Content="All topics"/><ComboBoxItem Content="Work &amp; code"/><ComboBoxItem Content="Cars"/><ComboBoxItem Content="AI &amp; news"/></ComboBox></Grid>
      <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto"><StackPanel x:Name="LibraryItems"/></ScrollViewer>
     </Grid>
     <Grid x:Name="ProgressPage" Visibility="Collapsed"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
-     <TextBlock Text="Little steps add up." FontSize="21" FontFamily="Georgia" Margin="0,7,0,14"/>
-     <Border Background="#E7EDDF" CornerRadius="12" Padding="17"><StackPanel><TextBlock Text="TODAY" FontSize="9" Foreground="#74846C"/><TextBlock x:Name="TodayCount" FontSize="35" FontFamily="Georgia" Margin="0,2,0,0"/><TextBlock Text="cards reviewed. Every one counts." FontSize="11" Foreground="#728169"/></StackPanel></Border>
-     <TextBlock x:Name="ProgressSummary" FontSize="12" LineHeight="23" Margin="2,14,0,10" TextWrapping="Wrap"/>
-     <TextBlock Text="NEEDS A LITTLE MORE TIME" FontSize="9" Foreground="#899281" Margin="2,5,0,8"/>
+     <local:SelectableText Text="Little steps add up." FontSize="21" FontFamily="Georgia" Margin="0,7,0,14"/>
+     <Border Background="#E7EDDF" CornerRadius="12" Padding="17"><StackPanel><local:SelectableText Text="TODAY" FontSize="9" Foreground="#74846C"/><local:SelectableText x:Name="TodayCount" FontSize="35" FontFamily="Georgia" Margin="0,2,0,0"/><local:SelectableText Text="cards reviewed. Every one counts." FontSize="11" Foreground="#728169"/></StackPanel></Border>
+     <local:SelectableText x:Name="ProgressSummary" FontSize="12" LineHeight="23" Margin="2,14,0,10" TextWrapping="Wrap"/>
+     <local:SelectableText Text="NEEDS A LITTLE MORE TIME" FontSize="9" Foreground="#899281" Margin="2,5,0,8"/>
      <StackPanel x:Name="WeakItems"/>
-     <TextBlock Text="Sound familiarity is your own assessment; quiet practice does not measure listening comprehension." FontSize="10" Foreground="#8C9586" TextWrapping="Wrap" LineHeight="16" Margin="2,12,0,4"/>
+     <local:SelectableText Text="Sound familiarity is your own assessment; quiet practice does not measure listening comprehension." FontSize="10" Foreground="#8C9586" TextWrapping="Wrap" LineHeight="16" Margin="2,12,0,4"/>
     </StackPanel></ScrollViewer></Grid>
     <Grid x:Name="SettingsPage" Visibility="Collapsed"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
-     <TextBlock Text="Make room for English." FontFamily="Georgia" FontSize="20" Margin="0,7,0,16"/>
-     <CheckBox x:Name="QuietCheck" Content="Quiet mode · 静音" Margin="0,0,0,12" FontSize="13"/><TextBlock Text="No sound unless you switch this off and press ♫." FontSize="10" Foreground="#829080" TextWrapping="Wrap" Margin="20,-6,0,14"/>
+     <local:SelectableText Text="Make room for English." FontFamily="Georgia" FontSize="20" Margin="0,7,0,16"/>
+     <CheckBox x:Name="QuietCheck" Content="Quiet mode · 静音" Margin="0,0,0,12" FontSize="13"/><local:SelectableText Text="No sound unless you switch this off and press ♫." FontSize="10" Foreground="#829080" TextWrapping="Wrap" Margin="20,-6,0,14"/>
      <CheckBox x:Name="TopmostCheck" Content="Keep on top · 窗口置顶" Margin="0,0,0,17" FontSize="13"/>
-     <TextBlock Text="YOUR MIX" FontSize="9" Foreground="#829080"/><TextBlock Text="Work &amp; code   40%&#10;Cars                  35%&#10;AI &amp; news        25%" FontSize="12" LineHeight="23" Margin="0,7,0,15"/>
-     <TextBlock x:Name="VoiceInfo" FontSize="11" Foreground="#829080" TextWrapping="Wrap" Margin="0,0,0,12"/>
+     <local:SelectableText Text="YOUR MIX" FontSize="9" Foreground="#829080"/><local:SelectableText Text="Work &amp; code   40%&#10;Cars                  35%&#10;AI &amp; news        25%" FontSize="12" LineHeight="23" Margin="0,7,0,15"/>
+     <local:SelectableText x:Name="VoiceInfo" FontSize="11" Foreground="#829080" TextWrapping="Wrap" Margin="0,0,0,12"/>
      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button x:Name="ExportButton" Content="Export backup"/><Button x:Name="ImportButton" Grid.Column="2" Content="Restore backup"/></Grid>
      <Button x:Name="FolderButton" Content="Open local data folder ↗" Margin="0,9,0,0" Background="Transparent" HorizontalAlignment="Left" Padding="0,8"/>
-     <TextBlock Text="× saves and exits. − hides to the tray.&#10;Progress is also saved after every answer.&#10;Space: show Chinese · 1 / 2 / 3: rate" FontSize="10" Foreground="#829080" TextWrapping="Wrap" LineHeight="18" Margin="0,12,0,0"/>
+     <Button x:Name="CreditsButton" Content="Dictionary sources &amp; licences ↗" Background="Transparent" HorizontalAlignment="Left" Padding="0,6"/>
+     <local:SelectableText Text="× saves and exits. − hides to the tray.&#10;Progress is also saved after every answer.&#10;Space: show Chinese · 1 / 2 / 3: rate" FontSize="10" Foreground="#829080" TextWrapping="Wrap" LineHeight="18" Margin="0,12,0,0"/>
     </StackPanel></ScrollViewer></Grid>
    </Grid>
-   <TextBlock x:Name="StatusText" Grid.Row="2" Text="Quiet mode · saved locally" FontSize="9" Foreground="#8C9789" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="10,0"/>
+   <local:SelectableText x:Name="StatusText" Grid.Row="2" TextAlignment="Center" Text="Quiet mode · saved locally" FontSize="9" Foreground="#8C9789" HorizontalAlignment="Stretch" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="10,0"/>
    <Border Grid.Row="3" BorderBrush="#E1E4DA" BorderThickness="0,1,0,0" Margin="18,0"><UniformGrid Columns="3" Margin="0,6,0,7"><Button x:Name="LearnNav" Content="◦  Learn" Padding="7,6" Background="#E5EBDE"/><Button x:Name="LibraryNav" Content="▤  Library" Padding="7,6" Background="Transparent"/><Button x:Name="ProgressNav" Content="↗  Progress" Padding="7,6" Background="Transparent"/></UniformGrid></Border>
   </Grid>
  </Border>

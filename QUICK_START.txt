@@ -6,6 +6,11 @@ Lilt Pocket English · V1.0
 学习：
 默认静音，先看英文单词、音标、例句和英文简释。
 中文仅在点击“查看中文释义”后展开。
+词性直接标注，Uses & word forms 可查看对应词义、例句和词形。
+双击英文单词可进入解释页，解释里的单词也可继续双击；Back 返回。
+常见复数、过去式、进行时可回到词条；is、are、a 等常见功能词不跳转。
+拖动选中文字后可按 Ctrl+C，或右键复制。Ctrl+双击仅选词，不跳转。
+扩展字典离线可用，未收录词可主动点击 Look up online 查询。
 Again：词义忘了；Sound unsure：词义认识，读音不熟；Got it：两者熟悉。
 IPA first：先看音标回想单词，再点击 Reveal word 揭晓。
 Library：搜索和筛选词卡，通过 Add 自建词卡。

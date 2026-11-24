@@ -40,6 +40,7 @@ namespace PocketEnglish
   public string MeaningZh { get; set; }
   public string ExampleZh { get; set; }
   public string Collocation { get; set; }
+  public string PartOfSpeech { get; set; }
  }
  public class Entry
  {
@@ -196,6 +197,13 @@ namespace PocketEnglish
   }
   public void Export(AppState state,string path) { File.WriteAllText(path,json.Serialize(state),new UTF8Encoding(false)); }
  }
+ public class LookupVisit
+ {
+  public string Word;
+  public string Context;
+  public WordEntry Entry;
+  public double Scroll;
+ }
  public class PocketApp
  {
   Window window;
@@ -210,6 +218,11 @@ namespace PocketEnglish
   EventWaitHandle activation;
   bool saveFailed;
   string notice;
+  readonly WordLookup dictionary=new WordLookup();
+  readonly List<LookupVisit> lookupPath=new List<LookupVisit>();
+  string lookupOrigin="Learn";
+  double originScroll;
+  int lookupGeneration;
   T N<T>(string name) where T:class { return window.FindName(name) as T; }
   static Brush Color(string color) { return (Brush)new BrushConverter().ConvertFromString(color); }
   public PocketApp(string directory,EventWaitHandle signal)
@@ -225,7 +238,7 @@ namespace PocketEnglish
    var timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(400)};
    timer.Tick+=delegate { if(activation.WaitOne(0)) Restore(); };
    timer.Start();
-   window.Closed+=delegate { timer.Stop(); tray.Visible=false; tray.Dispose(); if(voice!=null) voice.Dispose(); };
+   window.Closed+=delegate { lookupGeneration++; SelectableText.WordRequested=null; timer.Stop(); tray.Visible=false; tray.Dispose(); if(voice!=null) voice.Dispose(); };
   }
   public void Run(Application app) { app.Run(window); }
   Card Current() { return cards.FirstOrDefault(c=>c.Id==state.CurrentId); }
@@ -262,15 +275,25 @@ namespace PocketEnglish
   bool Save()
   {
    try { store.Save(state); saveFailed=false; Status(); return true; }
-   catch(Exception e) { saveFailed=true; N<TextBlock>("StatusText").Text="Save failed · 请导出备份后退出"; N<TextBlock>("StatusText").ToolTip=e.Message; return false; }
+   catch(Exception e) { saveFailed=true; N<SelectableText>("StatusText").Text="Save failed · 请导出备份后退出"; N<SelectableText>("StatusText").ToolTip=e.Message; return false; }
   }
   void Status()
   {
    if(saveFailed) return;
-   N<TextBlock>("StatusText").Text=notice ?? ((state.Quiet?"Quiet mode":"Sound available")+" · saved locally");
+   N<SelectableText>("StatusText").Text=notice ?? ((state.Quiet?"Quiet mode":"Sound available")+" · saved locally");
   }
   void Wire()
   {
+   SelectableText.WordRequested=OpenWord;
+   N<Button>("LookupBack").Click+=delegate { BackFromWord(); };
+   N<Button>("UsesButton").Click+=delegate { var c=Current(); if(c!=null)OpenWord(c.Term,c.Example); };
+   N<Button>("CreditsButton").Click+=delegate
+   {
+    lookupOrigin=page;lookupPath.Clear();lookupGeneration++;
+    var senses=new List<WordSense>();
+    foreach(string source in new[]{"Wordset-license.txt","CMUdict-license.txt"})using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream(source))using(var reader=new StreamReader(stream,Encoding.UTF8))senses.Add(new WordSense{PartOfSpeech="License",Definition=reader.ReadToEnd()});
+    var visit=new LookupVisit{Word="Dictionary credits",Entry=new WordEntry{Word="Dictionary credits",Source="Wordset / WordNet: github.com/wordset/wordset-dictionary\nCMUdict: github.com/cmusphinx/cmudict",Senses=senses}};lookupPath.Add(visit);ShowPage("Lookup");RenderWord(visit,false);
+   };
    N<Border>("TitleBar").MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e) { if(!(e.OriginalSource is Button)) { try { window.DragMove(); } catch(InvalidOperationException){} } };
    N<Button>("CloseButton").Click+=delegate { window.Close(); };
    N<Button>("MinimizeButton").Click+=delegate { state.Left=window.Left; state.Top=window.Top; Save(); if(voice!=null) voice.SpeakAsyncCancelAll(); window.Hide(); };
@@ -305,6 +328,7 @@ namespace PocketEnglish
    N<Button>("FolderButton").Click+=delegate { System.Diagnostics.Process.Start("explorer.exe",store.DirectoryPath); };
    window.PreviewKeyDown+=delegate(object sender,KeyEventArgs e)
    {
+    if(page=="Lookup" && e.Key==Key.Escape) { BackFromWord(); e.Handled=true; return; }
     if(page!="Learn" || Keyboard.Modifiers!=ModifierKeys.None || Keyboard.FocusedElement is TextBox) return;
     if(e.Key==Key.Space) { if(state.IpaMode && !state.WordRevealed) { state.WordRevealed=true; RenderLearn(); Save(); } else ToggleChinese(); e.Handled=true; }
     if(e.Key==Key.D1 || e.Key==Key.NumPad1) { Rate(0); e.Handled=true; }
@@ -315,7 +339,8 @@ namespace PocketEnglish
   void ShowPage(string selected)
   {
    page=selected;
-   foreach(string name in new[]{"Learn","Library","Progress","Settings"}) N<Grid>(name+"Page").Visibility=name==selected?Visibility.Visible:Visibility.Collapsed;
+   foreach(string name in new[]{"Learn","Library","Progress","Settings","Lookup"}) N<Grid>(name+"Page").Visibility=name==selected?Visibility.Visible:Visibility.Collapsed;
+   if(selected!="Lookup") { lookupGeneration++; lookupPath.Clear(); }
    foreach(string name in new[]{"Learn","Library","Progress"}) N<Button>(name+"Nav").Background=Color(name==selected?"#E5EBDE":"Transparent");
    if(selected=="Learn") { if(Current()==null) { SelectNext(); Save(); } RenderLearn(); }
    if(selected=="Library") RenderLibrary();
@@ -323,7 +348,7 @@ namespace PocketEnglish
    if(selected=="Settings")
    {
     settingControls=true; N<CheckBox>("QuietCheck").IsChecked=state.Quiet; N<CheckBox>("TopmostCheck").IsChecked=state.KeepOnTop; settingControls=false;
-    N<TextBlock>("VoiceInfo").Text=englishVoice==null?"No English system voice was found. All quiet practice remains available.":"Offline voice: "+englishVoice+". IPA cards use a broad American pronunciation.";
+    N<SelectableText>("VoiceInfo").Text=englishVoice==null?"No English system voice was found. All quiet practice remains available.":"Offline voice: "+englishVoice+". IPA cards use a broad American pronunciation.";
    }
   }
   static string CategoryName(string cat) { return cat=="work"?"WORK & CODE":cat=="cars"?"CARS & THE ROAD":"AI & THE NEWS"; }
@@ -332,30 +357,34 @@ namespace PocketEnglish
    Card c=Current(); bool has=c!=null; bool hidden=has && state.IpaMode && !state.WordRevealed;
    int today=state.History.Count(h=>h.Day==Engine.Day(DateTime.UtcNow));
    int due=cards.Count(x=>state.Entries.ContainsKey(x.Id) && Engine.Date(state.Entries[x.Id].DueUtc)<=DateTime.UtcNow);
-   N<TextBlock>("SessionCaption").Text=today+" reviewed today · "+due+" due · no daily target";
+   N<SelectableText>("SessionCaption").Text=today+" reviewed today · "+due+" due · no daily target";
    N<Button>("ModeButton").Content=state.IpaMode?"Word first  ↗":"IPA first  ↗";
-   N<TextBlock>("CategoryText").Text=has?CategoryName(c.Category)+(state.Entries.ContainsKey(c.Id)?"  /  REVISIT":"  /  DISCOVER"):"A GOOD PLACE TO PAUSE";
-   N<TextBlock>("CategoryText").Foreground=Color(has && c.Category=="cars"?"#9A7942":has && c.Category=="news"?"#67829E":"#61816C");
-   N<TextBlock>("WordText").Text=has?(hidden?"Read it. Recall it.":c.Term):"All caught up.";
-   N<TextBlock>("WordText").FontSize=has && c.Term.Length>21?23:29;
-   N<TextBlock>("IpaText").Text=has?c.Ipa:"";
-   N<TextBlock>("IpaText").FontSize=hidden?23:15;
-   N<TextBlock>("StressText").Text=has?(hidden?"IPA → recall the word, then reveal":c.Stress):"Come back when a review is due.";
+   N<SelectableText>("CategoryText").Text=has?CategoryName(c.Category)+(state.Entries.ContainsKey(c.Id)?"  /  REVISIT":"  /  DISCOVER"):"A GOOD PLACE TO PAUSE";
+   N<SelectableText>("CategoryText").Foreground=Color(has && c.Category=="cars"?"#9A7942":has && c.Category=="news"?"#67829E":"#61816C");
+   N<SelectableText>("WordText").Text=has?(hidden?"Read it. Recall it.":c.Term):"All caught up.";
+   N<SelectableText>("WordText").FontSize=has && c.Term.Length>21?23:29;
+   N<SelectableText>("IpaText").Text=has?c.Ipa:"";
+   N<SelectableText>("IpaText").FontSize=hidden?23:15;
+   N<SelectableText>("StressText").Text=has?(hidden?"IPA → recall the word, then reveal":c.Stress.Split('·')[0].Trim()):"Come back when a review is due.";
+   N<SelectableText>("IpaText").LookupEnabled=false;
+   N<SelectableText>("StressText").LookupEnabled=false;
    N<Button>("RevealWordButton").Visibility=hidden?Visibility.Visible:Visibility.Collapsed;
    N<Border>("ExampleBorder").Visibility=has && !hidden?Visibility.Visible:Visibility.Collapsed;
-   var example=N<TextBlock>("ExampleText"); example.Inlines.Clear();
+   var example=N<SelectableText>("ExampleText"); example.Inlines.Clear();
    if(has)
    {
     int index=c.Example.IndexOf(c.Term,StringComparison.OrdinalIgnoreCase);
     if(index>=0) { example.Inlines.Add(new Run(c.Example.Substring(0,index))); example.Inlines.Add(new Run(c.Example.Substring(index,c.Term.Length)){FontWeight=FontWeights.SemiBold}); example.Inlines.Add(new Run(c.Example.Substring(index+c.Term.Length))); }
     else example.Inlines.Add(new Run(c.Example));
    }
-   N<TextBlock>("DefinitionText").Text=has?c.Definition:"Browse your library to revisit a word, or add a phrase you met today.";
-   N<TextBlock>("CollocationText").Text=has && !hidden?c.Collocation:"";
+   N<SelectableText>("SenseLabelText").Text=has?WordLookup.PosLabel(WordLookup.CardPos(c)):"IN PLAIN ENGLISH";
+   N<SelectableText>("DefinitionText").Text=has?WordLookup.FromCard(c).Senses[0].Definition:"Browse your library to revisit a word, or add a phrase you met today.";
+   N<Button>("UsesButton").Visibility=has && !hidden?Visibility.Visible:Visibility.Collapsed;
+   N<SelectableText>("CollocationText").Text=has && !hidden?c.Collocation:"";
    N<Button>("ChineseButton").Visibility=has && !hidden?Visibility.Visible:Visibility.Collapsed;
    N<Button>("ChineseButton").Content=state.ChineseVisible?"收起中文释义  −":"查看中文释义  ＋";
    N<Border>("ChineseBox").Visibility=has && !hidden && state.ChineseVisible?Visibility.Visible:Visibility.Collapsed;
-   N<TextBlock>("ChineseText").Text=has?(String.IsNullOrWhiteSpace(c.MeaningZh)?"暂无中文释义":c.MeaningZh)+(String.IsNullOrWhiteSpace(c.ExampleZh)?"":"\n"+c.ExampleZh):"";
+   N<SelectableText>("ChineseText").Text=has?(String.IsNullOrWhiteSpace(c.MeaningZh)?"暂无中文释义":c.MeaningZh)+(String.IsNullOrWhiteSpace(c.ExampleZh)?"":"\n"+c.ExampleZh):"";
    N<Button>("SpeakButton").IsEnabled=has && !hidden && !state.Quiet && englishVoice!=null;
    foreach(string name in new[]{"AgainButton","SoundButton","GotItButton"}) N<Button>(name).IsEnabled=has && !hidden;
   }
@@ -367,32 +396,114 @@ namespace PocketEnglish
    Engine.Rate(state,c,rating,DateTime.UtcNow); SelectNext(); RenderLearn(); N<ScrollViewer>("CardScroll").ScrollToTop(); Save();
   }
   void Study(Card card) { state.CurrentId=card.Id; state.ChineseVisible=false; state.WordRevealed=false; notice=null; ShowPage("Learn"); N<ScrollViewer>("CardScroll").ScrollToTop(); Save(); }
+  void OpenWord(string word,string context)
+  {
+   if(String.IsNullOrWhiteSpace(word) || WordLookup.IsStopWord(word))return;
+   if(page=="Lookup" && lookupPath.Count>0 && lookupPath.Last().Word.Equals(word,StringComparison.OrdinalIgnoreCase))return;
+   if(page!="Lookup") {lookupOrigin=page;originScroll=N<ScrollViewer>("CardScroll").VerticalOffset;lookupPath.Clear();}
+   else if(lookupPath.Count>0)lookupPath.Last().Scroll=N<ScrollViewer>("LookupScroll").VerticalOffset;
+   var visit=new LookupVisit{Word=word,Context=context}; lookupPath.Add(visit);
+   ShowPage("Lookup"); RenderWord(visit,true); int generation=++lookupGeneration;
+   var snapshot=cards.ToList();
+   ThreadPool.QueueUserWorkItem(delegate
+   {
+    WordEntry entry=null; string error=null;
+    try {entry=dictionary.Find(word,snapshot);}catch(Exception ex){error=ex.Message;}
+    window.Dispatcher.BeginInvoke(new Action(delegate
+    {
+     if(generation!=lookupGeneration || page!="Lookup" || lookupPath.Last()!=visit)return;
+     visit.Entry=entry;RenderWord(visit,false); if(error!=null)N<SelectableText>("StatusText").Text="Dictionary unavailable · learning progress kept";
+    }));
+   });
+  }
+  SelectableText WordText(string value,double size,string color)
+  {
+   return new SelectableText{Text=value??"",FontSize=size,Foreground=Color(color),Margin=new Thickness(0,0,0,8),TextWrapping=TextWrapping.Wrap};
+  }
+  void RenderWord(LookupVisit visit,bool loading)
+  {
+   var panel=N<StackPanel>("LookupContent");panel.Children.Clear();
+   string title=visit.Entry==null?visit.Word:visit.Entry.Word;
+   var heading=WordText(title,28,"#263D39");heading.FontFamily=new FontFamily("Georgia");panel.Children.Add(heading);
+   if(!title.Equals(visit.Word,StringComparison.OrdinalIgnoreCase))panel.Children.Add(WordText("On the page: "+visit.Word+"  →  headword: "+title,10,"#829080"));
+   if(loading){panel.Children.Add(WordText("Finding an offline entry…",12,"#829080"));return;}
+   var entry=visit.Entry;
+   if(entry!=null)
+   {
+    if(!String.IsNullOrWhiteSpace(entry.Ipa)){var ipa=WordText(entry.Ipa,15,"#697A70");ipa.LookupEnabled=false;panel.Children.Add(ipa);}
+    if(!String.IsNullOrWhiteSpace(entry.Forms))panel.Children.Add(WordText(entry.Forms,10,"#829080"));
+    foreach(var sense in entry.Senses)
+    {
+     var box=new StackPanel{Margin=new Thickness(0,0,0,12)};
+     var pos=WordText(WordLookup.PosLabel(sense.PartOfSpeech),11,"#47745D");pos.FontWeight=FontWeights.SemiBold;box.Children.Add(pos);
+     if(!String.IsNullOrWhiteSpace(sense.Ipa) && sense.Ipa!=entry.Ipa){var ipa=WordText(sense.Ipa,13,"#697A70");ipa.LookupEnabled=false;box.Children.Add(ipa);}
+     box.Children.Add(WordText(sense.Definition,14,"#344C46"));
+     if(!String.IsNullOrWhiteSpace(sense.Example)) {box.Children.Add(new Border{BorderBrush=Color("#93AD95"),BorderThickness=new Thickness(2,0,0,0),Padding=new Thickness(10,0,0,0),Child=WordText(sense.Example,14,"#344C46"),Margin=new Thickness(0,3,0,4)});}
+     if(!String.IsNullOrWhiteSpace(sense.Usage))box.Children.Add(WordText(sense.Usage,10,"#829080"));
+     if(!String.IsNullOrWhiteSpace(sense.MeaningZh))
+     {
+      var chinese=WordText(sense.MeaningZh+(String.IsNullOrWhiteSpace(sense.ExampleZh)?"":"\n"+sense.ExampleZh),11,"#6F806E");chinese.Visibility=Visibility.Collapsed;
+      var reveal=new Button{Content="查看此词性的中文释义 ＋",Background=Brushes.Transparent,Foreground=Color("#829080"),Padding=new Thickness(0,3,0,3),FontSize=10,HorizontalAlignment=HorizontalAlignment.Left};
+      reveal.Click+=delegate {chinese.Visibility=chinese.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;reveal.Content=chinese.Visibility==Visibility.Visible?"收起中文释义 −":"查看此词性的中文释义 ＋";};box.Children.Add(reveal);box.Children.Add(chinese);
+     }
+     panel.Children.Add(new Border{Background=Color("#FFFEFA"),CornerRadius=new CornerRadius(10),Padding=new Thickness(13,12,13,2),Child=box,Margin=new Thickness(0,5,0,4)});
+    }
+    panel.Children.Add(WordText(entry.Source,9,"#899585"));
+   }
+   else
+   {
+    panel.Children.Add(WordText("No offline entry for this word yet.",13,"#637460"));
+    var online=new Button{Content="Look up online",Background=Color("#E5EBDE"),HorizontalAlignment=HorizontalAlignment.Left,Margin=new Thickness(0,4,0,12)};
+    online.Click+=delegate
+    {
+     online.IsEnabled=false;online.Content="Looking up…";int generation=++lookupGeneration;
+     ThreadPool.QueueUserWorkItem(delegate
+     {
+      WordEntry found=null;try{found=dictionary.Online(visit.Word);}catch{}
+      window.Dispatcher.BeginInvoke(new Action(delegate {if(generation!=lookupGeneration || page!="Lookup")return;visit.Entry=found;if(found!=null)RenderWord(visit,false);else{online.IsEnabled=true;online.Content="Retry online lookup";N<SelectableText>("StatusText").Text="No result or connection unavailable · 可返回继续学习";}}));
+     });
+    };panel.Children.Add(online);
+   }
+   if(!String.IsNullOrWhiteSpace(visit.Context))
+   {
+    panel.Children.Add(WordText("FROM THE PAGE",9,"#899585"));panel.Children.Add(WordText(visit.Context,12,"#6F806E"));
+   }
+   N<ScrollViewer>("LookupScroll").ScrollToVerticalOffset(visit.Scroll);
+  }
+  void BackFromWord()
+  {
+   lookupGeneration++;
+   if(lookupPath.Count>1){lookupPath.RemoveAt(lookupPath.Count-1);RenderWord(lookupPath.Last(),false);}
+   else {string origin=lookupOrigin;double scroll=originScroll;ShowPage(origin);if(origin=="Learn")window.Dispatcher.BeginInvoke(new Action(()=>N<ScrollViewer>("CardScroll").ScrollToVerticalOffset(scroll)));}
+  }
   void RenderLibrary()
   {
    var panel=N<StackPanel>("LibraryItems"); panel.Children.Clear(); string search=N<TextBox>("SearchBox").Text.Trim();
    int filter=N<ComboBox>("CategoryFilter").SelectedIndex; string cat=filter==1?"work":filter==2?"cars":filter==3?"news":null;
    var selected=cards.Where(c=>(cat==null || cat==c.Category) && (String.IsNullOrEmpty(search) || (c.Term+" "+c.Example+" "+c.Definition+" "+c.MeaningZh).IndexOf(search,StringComparison.OrdinalIgnoreCase)>=0)).ToList();
-   N<TextBlock>("LibraryCount").Text=selected.Count+" / "+cards.Count+" cards · search above";
+   N<SelectableText>("LibraryCount").Text=selected.Count+" / "+cards.Count+" cards · search above";
    foreach(var item in selected)
    {
     Card c=item; var content=new StackPanel();
-    content.Children.Add(new TextBlock{Text=c.Term,FontSize=14,FontWeight=FontWeights.SemiBold,TextWrapping=TextWrapping.Wrap});
-    content.Children.Add(new TextBlock{Text=CategoryName(c.Category)+"  ·  "+(state.Entries.ContainsKey(c.Id)?state.Entries[c.Id].LastRating=="sound"?"sound practice":"reviewed":"new"),FontSize=9,Foreground=Color("#8A9588"),Margin=new Thickness(0,4,0,0)});
-    var button=new Button{Content=content,Background=Color("#FFFEFA"),HorizontalContentAlignment=HorizontalAlignment.Left,Padding=new Thickness(12,9,12,9),Margin=new Thickness(0,0,0,5)};
-    button.Click+=delegate { Study(c); }; panel.Children.Add(button);
+    content.Children.Add(new SelectableText{Text=c.Term,FontSize=14,FontWeight=FontWeights.SemiBold,TextWrapping=TextWrapping.Wrap});
+    content.Children.Add(new SelectableText{Text=CategoryName(c.Category)+"  ·  "+(state.Entries.ContainsKey(c.Id)?state.Entries[c.Id].LastRating=="sound"?"sound practice":"reviewed":"new"),FontSize=9,Foreground=Color("#8A9588"),Margin=new Thickness(0,4,0,0)});
+    content.MaxWidth=235;
+    var row=new DockPanel();var button=new Button{Content="Study ↗",Background=Color("#E5EBDE"),Padding=new Thickness(8,5,8,5),VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(7,0,0,0)};
+    button.Click+=delegate { Study(c); };DockPanel.SetDock(button,Dock.Right);row.Children.Add(button);row.Children.Add(content);
+    panel.Children.Add(new Border{Child=row,Background=Color("#FFFEFA"),CornerRadius=new CornerRadius(8),Padding=new Thickness(10,9,10,9),Margin=new Thickness(0,0,0,5)});
    }
-   if(selected.Count==0) panel.Children.Add(new TextBlock{Text="No matches. Try a shorter word.",Margin=new Thickness(5,15,0,0),FontSize=12});
+   if(selected.Count==0) panel.Children.Add(new SelectableText{Text="No matches. Try a shorter word.",Margin=new Thickness(5,15,0,0),FontSize=12});
   }
   void RenderProgress()
   {
    var values=state.Entries.Values.ToList();
-   N<TextBlock>("TodayCount").Text=state.History.Count(h=>h.Day==Engine.Day(DateTime.UtcNow)).ToString();
+   N<SelectableText>("TodayCount").Text=state.History.Count(h=>h.Day==Engine.Day(DateTime.UtcNow)).ToString();
    int due=values.Count(e=>Engine.Date(e.DueUtc)<=DateTime.UtcNow);
-   N<TextBlock>("ProgressSummary").Text=values.Count+" / "+cards.Count+" words explored\n"+values.Sum(e=>e.Reviews)+" total reviews  ·  "+due+" due now\n"+values.Count(e=>e.LastRating=="sound")+" marked for sound practice";
+   N<SelectableText>("ProgressSummary").Text=values.Count+" / "+cards.Count+" words explored\n"+values.Sum(e=>e.Reviews)+" total reviews  ·  "+due+" due now\n"+values.Count(e=>e.LastRating=="sound")+" marked for sound practice";
    var panel=N<StackPanel>("WeakItems"); panel.Children.Clear();
    var weak=cards.Where(c=>state.Entries.ContainsKey(c.Id) && state.Entries[c.Id].LastRating!="good").OrderBy(c=>Engine.Date(state.Entries[c.Id].DueUtc)).Take(12).ToList();
-   foreach(var item in weak) { Card c=item; var b=new Button{Content=c.Term+"   ↗",HorizontalAlignment=HorizontalAlignment.Left,Margin=new Thickness(0,0,0,5),Padding=new Thickness(9,6,9,6),Background=Color("#EBEEE4")}; b.Click+=delegate { Study(c); }; panel.Children.Add(b); }
-   if(weak.Count==0) panel.Children.Add(new TextBlock{Text="Words you find tricky will appear here.",FontSize=11,Foreground=Color("#829080")});
+   foreach(var item in weak) { Card c=item;var row=new DockPanel();var b=new Button{Content="Study ↗",Padding=new Thickness(8,4,8,4),Background=Color("#EBEEE4"),Margin=new Thickness(6,0,0,0)};b.Click+=delegate {Study(c);};DockPanel.SetDock(b,Dock.Right);row.Children.Add(b);row.Children.Add(WordText(c.Term,12,"#53685D"));panel.Children.Add(new Border{Child=row,Margin=new Thickness(0,0,0,5)}); }
+   if(weak.Count==0) panel.Children.Add(new SelectableText{Text="Words you find tricky will appear here.",FontSize=11,Foreground=Color("#829080")});
   }
   void Export()
   {
@@ -419,19 +530,22 @@ namespace PocketEnglish
   {
    var dialog=new Window{Title="Add a word or phrase",Width=390,Height=610,ResizeMode=ResizeMode.NoResize,Owner=window,WindowStartupLocation=WindowStartupLocation.CenterOwner,Background=Color("#F6F5EF"),FontFamily=window.FontFamily,ShowInTaskbar=false};
    var scroll=new ScrollViewer{VerticalScrollBarVisibility=ScrollBarVisibility.Auto}; var stack=new StackPanel{Margin=new Thickness(20)}; scroll.Content=stack; dialog.Content=scroll;
-   stack.Children.Add(new TextBlock{Text="Something you met today.",FontSize=21,FontFamily=new FontFamily("Georgia"),Margin=new Thickness(0,0,0,13)});
+   stack.Children.Add(new SelectableText{Text="Something you met today.",FontSize=21,FontFamily=new FontFamily("Georgia"),Margin=new Thickness(0,0,0,13)});
+   stack.Children.Add(new SelectableText{Text="Part of speech / 词性 *",FontSize=11,Margin=new Thickness(0,5,0,4)});
+   var parts=new ComboBox{ItemsSource=new[]{"noun","verb","adjective","adverb","noun phrase","phrasal verb"},SelectedIndex=0,Padding=new Thickness(7)};stack.Children.Add(parts);
    string[] labels={"Word / phrase *","IPA · optional","Stress / pronunciation note · optional","Simple English meaning *","English example *","中文释义 · 可选","例句中文 · 可选","Common phrase · optional"};
    var boxes=new List<TextBox>();
-   foreach(string label in labels) { stack.Children.Add(new TextBlock{Text=label,FontSize=11,Margin=new Thickness(0,8,0,4),Foreground=Color("#6F806E")}); var box=new TextBox{Padding=new Thickness(8,6,8,6),FontSize=12,TextWrapping=TextWrapping.Wrap,MaxLength=label.StartsWith("Word")?80:2000}; boxes.Add(box); stack.Children.Add(box); }
-   stack.Children.Add(new TextBlock{Text="Topic",FontSize=11,Margin=new Thickness(0,9,0,4)});
+   foreach(string label in labels) { stack.Children.Add(new SelectableText{Text=label,FontSize=11,Margin=new Thickness(0,8,0,4),Foreground=Color("#6F806E")}); var box=new TextBox{Padding=new Thickness(8,6,8,6),FontSize=12,TextWrapping=TextWrapping.Wrap,MaxLength=label.StartsWith("Word")?80:2000}; boxes.Add(box); stack.Children.Add(box); }
+   stack.Children.Add(new SelectableText{Text="Topic",FontSize=11,Margin=new Thickness(0,9,0,4)});
    var category=new ComboBox{ItemsSource=new[]{"Work & code","Cars","AI & news"},SelectedIndex=0,Padding=new Thickness(7)}; stack.Children.Add(category);
-   var error=new TextBlock{Foreground=Color("#AD5C47"),FontSize=11,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,8,0,0)}; stack.Children.Add(error);
+   var error=new SelectableText{Foreground=Color("#AD5C47"),FontSize=11,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,8,0,0)}; stack.Children.Add(error);
    var add=new Button{Content="Save to my library  →",Margin=new Thickness(0,12,0,0),Padding=new Thickness(10),Background=Color("#315A49"),Foreground=Brushes.White}; stack.Children.Add(add);
    add.Click+=delegate
    {
     if(String.IsNullOrWhiteSpace(boxes[0].Text) || String.IsNullOrWhiteSpace(boxes[3].Text) || String.IsNullOrWhiteSpace(boxes[4].Text)) { error.Text="Please add a word, English meaning and example."; return; }
     if(cards.Any(c=>c.Term.Equals(boxes[0].Text.Trim(),StringComparison.OrdinalIgnoreCase))) { error.Text="This word is already in your library."; return; }
     var card=new Card{Id="custom-"+Guid.NewGuid().ToString("N"),Category=new[]{"work","cars","news"}[category.SelectedIndex],Term=boxes[0].Text.Trim(),Ipa=boxes[1].Text.Trim(),Stress=boxes[2].Text.Trim(),Definition=boxes[3].Text.Trim(),Example=boxes[4].Text.Trim(),MeaningZh=boxes[5].Text.Trim(),ExampleZh=boxes[6].Text.Trim(),Collocation=boxes[7].Text.Trim()};
+    card.PartOfSpeech=(string)parts.SelectedItem;
     state.CustomCards.Add(card); cards.Add(card);
     if(!Save()) { state.CustomCards.Remove(card); cards.Remove(card); error.Text="Could not save. Please check the data folder."; return; }
     dialog.Close(); Study(card);
@@ -493,6 +607,19 @@ namespace PocketEnglish
     var custom=new Card{Id="custom-test",Category="cars",Term="test phrase",Definition="A test meaning.",Example="This is a test phrase."}; loaded.CustomCards.Add(custom); store.Save(loaded); Check(store.Load().CustomCards.Count==1,"Custom card persistence");
     loaded.CustomCards.Add(custom); rejected=false; try { string bad=Path.Combine(directory,"bad.json");store.Export(loaded,bad);store.Parse(File.ReadAllText(bad)); } catch { rejected=true; } Check(rejected,"Duplicate custom IDs accepted");
     notes.Add("PASS: Export/restore round trip; custom card persistence; invalid version and duplicate IDs rejected.");
+    var dictionary=new WordLookup();
+    Check(cards.All(c=>new[]{"noun","verb","adjective","adverb","noun phrase","phrasal verb"}.Contains(WordLookup.CardPos(c))),"Missing part of speech");
+    Check(cards.All(c=>WordLookup.FromCard(c).Senses.All(s=>!String.IsNullOrWhiteSpace(s.Definition) && !String.IsNullOrWhiteSpace(s.Example))),"Meaning/example missing for a curated part of speech");
+    var query=WordLookup.FromCard(cards.First(c=>c.Term=="query"));Check(query.Senses.Any(s=>s.PartOfSpeech=="noun") && query.Senses.Any(s=>s.PartOfSpeech=="verb"),"Query senses missing");
+    var duplicate=WordLookup.FromCard(cards.First(c=>c.Term=="duplicate"));Check(duplicate.Senses.Count==3 && duplicate.Senses.Last().Ipa!=duplicate.Ipa,"Duplicate verb pronunciation missing");
+    Check(WordLookup.Forms("troubleshoot","verb").Contains("troubleshot") && WordLookup.Forms("chip","verb").Contains("chipping") && WordLookup.Forms("query","verb").Contains("queried"),"Incorrect word forms");
+    Check(WordLookup.Candidates("triggered").Contains("trigger") && WordLookup.Candidates("batteries").Contains("battery") && WordLookup.Candidates("running").Contains("run"),"Inflection lookup");
+    Check(WordLookup.WordAt("Check the gateway, please.",11)=="gateway" && WordLookup.IsStopWord("are") && !WordLookup.IsStopWord("pressure"),"Word hit testing / stop words");
+    Check(dictionary.Find("pressure",cards)!=null && dictionary.Find("settings",cards)!=null && dictionary.Find("vehicles",cards)!=null && dictionary.Find("restarting",cards)!=null,"Offline incidental-word lookup failed");
+    notes.Add("PASS: Parts of speech and corresponding examples; alternate senses and pronunciations; verb forms; inflections; non-card offline words.");
+    var selectable=new SelectableText{Text="Select this sentence."};selectable.SelectAll();Check(selectable.IsReadOnly && selectable.Selection.Text.Trim()=="Select this sentence.","Selectable read-only content failed");
+    using(var iconStream=Assembly.GetExecutingAssembly().GetManifestResourceStream("suzuha.png"))using(var bitmap=new Drawing.Bitmap(iconStream)) {Check(bitmap.GetPixel(0,0).A==0 && bitmap.GetPixel(bitmap.Width-1,bitmap.Height-1).A==0,"Icon background is not transparent");}
+    notes.Add("PASS: Read-only content remains selectable; icon corners have zero alpha.");
     File.WriteAllLines(report,notes.Concat(new[]{"ALL CHECKS PASSED","Isolated data: "+directory}),new UTF8Encoding(false)); return 0;
    }
    catch(Exception e) { notes.Add("FAIL: "+e); File.WriteAllLines(report,notes,new UTF8Encoding(false)); return 1; }
